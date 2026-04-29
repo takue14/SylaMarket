@@ -18,10 +18,11 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/components/ProductCard.jsx", "src/app/seller/page.tsx", "src/components/SellerUploadForm.jsx", "src/contexts/ProductContext.jsx", "src/components/SellerAuth.jsx", "src/app/api/delivery/register/route.js"],
   "exclude": ["node_modules"]
 }

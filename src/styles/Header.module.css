@@ -1,0 +1,74 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: var(--secondary-color);
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 0;
+  z-index: 900;
+}
+
+.logo {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.nav {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.nav a, .nav Link {
+  color: var(--text-color);
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.nav a:hover, .nav Link:hover {
+  color: #007bff;
+}
+
+.icons {
+  display: flex;
+  gap: 1rem;
+  font-size: 1.2rem;
+}
+
+.hamburger {
+  display: none;
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--primary-color);
+}
+
+@media (max-width: 768px) {
+  .error-card-404 {
+    width: 90%;
+  }
+
+  .nav {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: var(--secondary-color);
+    box-shadow: var(--shadow);
+    padding: 1rem;
+  }
+
+  .nav.open {
+    display: flex;
+  }
+
+  .hamburger {
+    display: block;
+  }
+}

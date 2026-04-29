@@ -9,17 +9,29 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@types/react-icons": "^2.2.7",
+    "@types/uuid": "^10.0.0",
+    "bcryptjs": "^3.0.2",
+    "chart.js": "^4.5.1",
+    "cloudinary": "^2.7.0",
+    "express": "^5.1.0",
+    "mongoose": "^8.18.3",
+    "multer": "^2.0.2",
+    "next": "15.5.3",
     "react": "19.1.0",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "19.1.0",
-    "next": "15.5.3"
+    "react-icons": "^5.5.0",
+    "styled-components": "^6.3.8",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
-    "@eslint/eslintrc": "^3"
+    "typescript": "^5"
   }
 }

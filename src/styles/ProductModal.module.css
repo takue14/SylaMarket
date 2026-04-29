@@ -1,0 +1,140 @@
+/* src/styles/ProductModal.module.css (new: styles for modal) */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 10px;
+  max-width: 90%;
+  max-height: 80%;
+  overflow-y: auto;
+  position: relative;
+}
+
+.close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 1001;
+}
+
+.content {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+}
+
+.imageSection {
+  flex-shrink: 0;
+  border-radius: 15px;
+}
+
+.detailsSection h2 {
+  margin: 0 0 10px 0;
+}
+
+.price {
+  font-size: 24px;
+  font-weight: bold;
+  color: #0070f3;
+  margin: 0 0 10px 0;
+}
+
+.description {
+  margin: 0 0 20px 0;
+  color: #666;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.addToCart,
+.buyNow {
+  width: 200px;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.buyNow {
+  background: #0070f3;
+  color: white;
+  border-color: #0070f3;
+}
+
+.reviewsSection {
+  padding: 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.reviewsSection h3 {
+  margin: 0 0 15px 0;
+}
+
+.reviewsList {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.review {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 10px 0;
+}
+
+.reviewHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.user {
+  font-weight: bold;
+}
+
+.rating {
+  color: #ffa500;
+}
+
+.commentForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.commentForm textarea {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 10px;
+  resize: vertical;
+}
+
+.commentForm button {
+  align-self: flex-end;
+  padding: 8px 16px;
+  background: #0070f3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}

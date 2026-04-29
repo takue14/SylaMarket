@@ -1,0 +1,338 @@
+/* From Uiverse.io by SachinKumar666 */ 
+.card {
+  --card-bg: #ffffff;
+  --card-accent: #7c3aed;
+  --card-text: #1e293b;
+  --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+
+  width: 190px;
+  height: fit-content;
+  background: var(--card-bg);
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
+}
+
+.card__shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0) 40%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0) 60%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.card__glow {
+  position: absolute;
+  inset: -10px;
+  background: radial-gradient(
+    circle at 50% 0%,
+    rgba(124, 58, 237, 0.3) 0%,
+    rgba(124, 58, 237, 0) 70%
+  );
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.card__content {
+  padding: 1em;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+  position: relative;
+  z-index: 2;
+  
+
+}
+
+.card__badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #10b981;
+  color: white;
+  padding: 0.25em 0.5em;
+  border-radius: 999px;
+  font-size: 0.7em;
+  font-weight: 600;
+  transform: scale(0.8);
+  opacity: 0;
+  transition: all 0.4s ease 0.1s;
+}
+
+.card__image {
+  width: 100%;
+  min-height: 100px;
+  background: linear-gradient(45deg, #a78bfa, #8b5cf6);
+  border-radius: 12px;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.card__image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+      circle at 30% 30%,
+      rgba(255, 255, 255, 0.1) 0%,
+      transparent 30%
+    ),
+    repeating-linear-gradient(
+      45deg,
+      rgba(139, 92, 246, 0.1) 0px,
+      rgba(139, 92, 246, 0.1) 2px,
+      transparent 2px,
+      transparent 4px
+    );
+  opacity: 0.5;
+}
+
+.card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+.card__title {
+  color: var(--card-text);
+  font-size: 1em;
+  margin: 0;
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+
+.card__description {
+  color: var(--card-text);
+  font-size: 0.75em;
+  margin: 0;
+  opacity: 0.7;
+  transition: all 0.3s ease;
+  max-width: 100%;      /* set your limit */
+  white-space: nowrap;   /* prevent line break */
+  overflow: hidden;      /* hide extra text */
+  text-overflow: ellipsis; /* show ... */
+}
+
+.card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.card__price {
+  color: var(--card-text);
+  font-weight: 700;
+  font-size: 1em;
+  transition: all 0.3s ease;
+  padding: 0px;
+  margin: 0px;
+}
+
+.card__button {
+  width: 28px;
+  height: 28px;
+  background: var(--card-accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  transform: scale(0.9);
+  border: none;
+  border-color: transparent;
+}
+
+/* Hover Effects */
+.card:hover {
+  transform: translateY(-10px);
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border-color: rgba(124, 58, 237, 0.2);
+}
+
+.card:hover .card__shine {
+  opacity: 1;
+  animation: shine 3s infinite;
+}
+
+.card:hover .card__glow {
+  opacity: 1;
+}
+
+.card:hover .card__badge {
+  transform: scale(1);
+  opacity: 1;
+  z-index: 1;
+}
+
+.card:hover .card__image {
+  transform: translateY(-5px) scale(1.03);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.card:hover .card__title {
+  color: var(--card-accent);
+  transform: translateX(2px);
+}
+
+.card:hover .card__description {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+.card:hover .card__price {
+  color: var(--card-accent);
+  transform: translateX(2px);
+}
+
+.card:hover .card__button {
+  transform: scale(1);
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.2);
+}
+
+.card:hover .card__button svg {
+  animation: pulse 1.5s infinite;
+}
+
+/* Active State */
+.card:active {
+  transform: translateY(-5px) scale(0.98);
+}
+
+/* Animations */
+@keyframes shine {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+
+
+/* src/styles/ProductCard.module.css (updated: add skeleton styles) */
+
+.skeletonCard {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.skeletonImage {
+  height: 150px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+.skeletonContent {
+  padding: 16px;
+}
+
+.skeletonTitle {
+  height: 20px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.skeletonPrice {
+  height: 16px;
+  width: 60px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.skeletonRating {
+  height: 12px;
+  width: 80px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.skeletonButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.skeletonButton {
+  flex: 1;
+  height: 32px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* src/styles/ProductCard.module.css (updated: stacked centered buttons) */
+.buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.addToCart,
+.buyNow {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.buyNow {
+  background: #0070f3;
+  color: white;
+  border-color: #0070f3;
+}
