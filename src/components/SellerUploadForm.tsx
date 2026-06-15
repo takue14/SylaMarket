@@ -20,7 +20,7 @@ interface SellerUploadFormProps {
 const StyledWrapper = styled.div`
   .product-form {
     width: 350px;
-    background-color: rgb(255, 255, 255);
+    background-color: var(--bg-base);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -33,7 +33,8 @@ const StyledWrapper = styled.div`
   }
 
   .inputTab {
-    background-color: #fff;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
     padding: 1rem;
     padding-right: 3rem;
     font-size: 0.875rem;
@@ -45,13 +46,13 @@ const StyledWrapper = styled.div`
 
   .formHeading {
     font-size: 1.1em;
-    color: rgb(15, 15, 15);
+    color: var(--text-primary);
     font-weight: 700;
   }
 
   .formSubheading {
     font-size: 0.9em;
-    color: black;
+    color: var(--text-primary);
     line-height: 17px;
     text-align: center;
     margin-bottom: 10px;
@@ -72,7 +73,7 @@ const StyledWrapper = styled.div`
     width: 100%;
     padding: 8px;
     border-radius: 7px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     font-size: 1em;
     margin-bottom: 5px;
   }
@@ -86,7 +87,7 @@ const StyledWrapper = styled.div`
     width: 100%;
     height: 35px;
     border: none;
-    background-color: rgb(127, 129, 255);
+    background-color: var(--accent-color);
     color: white;
     font-weight: 600;
     cursor: pointer;
@@ -96,7 +97,7 @@ const StyledWrapper = styled.div`
   }
 
   .uploadButton:hover {
-    background-color: rgb(144, 145, 255);
+    background-color: var(--accent-color-hover);
     transition-duration: .2s;
   }
 
@@ -105,7 +106,7 @@ const StyledWrapper = styled.div`
     top: 5px;
     right: 5px;
     box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.171);
-    background-color: rgb(255, 255, 255);
+    background-color: var(--bg-base);
     border-radius: 50%;
     width: 25px;
     height: 25px;

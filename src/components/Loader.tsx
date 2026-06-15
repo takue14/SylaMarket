@@ -31,12 +31,12 @@ const Loader = () => {
 const StyledWrapper = styled.div`
 .loader-con{
     position: relative;
-    width: 100%;
+    width: 100vw;
     height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-      
+      z-index: 10000;
     }
 
     .loader-con::before {

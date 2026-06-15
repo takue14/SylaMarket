@@ -1,23 +1,42 @@
+/* app/global.css */
+
 :root {
-  --primary-color: #000000;
-  --secondary-color: #ffffff;
-  --accent-color: #f5f5f5;
-  --text-color: #333333;
-  --border-color: #e0e0e0;
-  --font-family: 'Arial, sans-serif';
-  --transition: all 0.3s ease;
-  --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  --bg-base:       #050505;
+  --bg-card:       #1b1b22;
+  --bg-card-deep:  #111116;
+  --bg-input:      #0d0d10;
+  --border:        #1f1f25;
+  --text-primary:  #ffffff;
+  --text-muted:    #9b9ba3;
+  --text-dim:      #6b6b76;
+  --accent:        #5b6cff;
+}
+
+/* Light mode overrides */
+html.light {
+  --bg-base:       #f4f4f8;
+  --bg-card:       #ffffff;
+  --bg-card-deep:  #f0f0f5;
+  --bg-input:      #ffffff;
+  --border:        #e2e8f0;
+  --text-primary:  #0f172a;
+  --text-muted:    #64748b;
+  --text-dim:      #94a3b8;
+  --accent:        #5b6cff;
 }
 
 * {
   box-sizing: border-box;
+}
+html{
+  background: var(--bg-base);
 }
 
 body {
   margin: 0;
   font-family: var(--font-family);
   color: var(--text-color);
-  background-color: var(--accent-color);
+  background-color: var(--bg-base);
   line-height: 1.6;
 }
 

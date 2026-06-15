@@ -2,8 +2,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
-  background: var(--secondary-color);
+  padding: 5px;
+  background: var(--bg-base);
   box-shadow: var(--shadow);
   position: sticky;
   top: 0;
@@ -11,9 +11,7 @@
 }
 
 .logo {
-  font-size: 1.8rem;
-  font-weight: bold;
-  color: var(--primary-color);
+  max-height: fit-content;
 }
 
 .nav {
@@ -22,20 +20,23 @@
   align-items: center;
 }
 
-.nav a, .nav Link {
-  color: var(--text-color);
+.nav a,
+.nav Link {
+  color: var(--text-primary);
   font-weight: 500;
   transition: var(--transition);
 }
 
-.nav a:hover, .nav Link:hover {
-  color: #007bff;
+.nav a:hover,
+.nav Link:hover {
+  color: var(--accent);
 }
 
 .icons {
   display: flex;
   gap: 1rem;
   font-size: 1.2rem;
+  color: var(--text-primary);
 }
 
 .hamburger {
@@ -44,7 +45,7 @@
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: var(--primary-color);
+  color: var(--text-primary);
 }
 
 @media (max-width: 768px) {
@@ -59,7 +60,7 @@
     top: 100%;
     left: 0;
     width: 100%;
-    background: var(--secondary-color);
+    background: var(--bg-base);
     box-shadow: var(--shadow);
     padding: 1rem;
   }

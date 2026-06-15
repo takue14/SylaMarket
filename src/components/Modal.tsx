@@ -89,11 +89,14 @@ const StyledWrapper = styled.div`
   align-items: center;
   z-index: 1000;
 
+
   .modal {
     max-width: 500px;
     width: 90%;
     max-height: 90vh;
-    overflow-y: auto;
+    overflow-y: scroll;
+    scrollbar-width: thin;
+    scrollbar-radius: 20px;
     background: #fff;
     padding: 24px;
     border-radius: 12px;
@@ -103,8 +106,12 @@ const StyledWrapper = styled.div`
     position: relative;
     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
   }
+    .modal::-webkit-scrollbar-button {
+    display: none;}
+.modal::-webkit-scrollbar {    width: 8px;}
+.modal::-webkit-scrollbar-thumb {background: #888; border-radius: 20px;}
 
-  .close {
+.close {
     position: absolute;
     top: 12px;
     right: 12px;

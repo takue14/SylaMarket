@@ -1,79 +1,146 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from pymongo import MongoClient
+import pymongo
+import numpy as np
+from scipy.sparse import csr_matrix
+from scipy.sparse.linalg import svds
+from datetime import datetime, timedelta
 import os
-from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
 
-# === YOUR ATLAS CONNECTION STRING ===
-MONGO_URL = "mongodb+srv://takudzwanashechigwaya:%40Taku3002@expressdb.0nouyzb.mongodb.net/prototypeConnect?retryWrites=true&w=majority"
+# ====================== MongoDB Connection ======================
+MONGO_URL = os.getenv("MONGO_URL", "mongodb+srv://takudzwanashechigwaya:%40Taku3002@expressdb.0nouyzb.mongodb.net/prototypeConnect?retryWrites=true&w=majority&appName=expressDB")
+client = pymongo.MongoClient(MONGO_URL)
+db = client.get_database("prototypeConnect")   # Change if your DB name is different
 
-client = MongoClient(MONGO_URL, serverSelectionTimeoutMS=10000)
-db = client["prototypeConnect"]
+products_collection = db.products
+activity_collection = db.activities   # Make sure this collection exists
 
-users_activity = db["user_activity"]
-products = db["products"]
-orders = db["orders"]
+# ====================== GLOBAL SIMILARITY CACHE ======================
+similarity_matrix = None
+product_ids = []
 
-print("✅ Connected to MongoDB Atlas successfully!")
+def build_interaction_matrix():
+    """Build user-item interaction matrix from activity logs"""
+    global similarity_matrix, product_ids
 
-def get_recommendations(user_id, top_n=8):
-    try:
-        user_logs = list(users_activity.find(
-            {"user_id": user_id, "action": {"$in": ["click", "view", "scroll"]}}
-        ).limit(50))
+    # Get all activities from last 90 days (recency)
+    cutoff = datetime.utcnow() - timedelta(days=90)
+    activities = list(activity_collection.find({"timestamp": {"$gte": cutoff}}))
 
-        if not user_logs:
-            # Cold start - return popular products
-            popular = list(products.find().sort("click_count", -1).limit(top_n))
-            return popular
+    if not activities:
+        return None, []
 
-        # Simple recommendation logic
-        user_items = {}
-        for log in user_logs:
-            pid = str(log["product_id"])
-            user_items[pid] = user_items.get(pid, 0) + 1
+    # Map product names to indices
+    all_products = list(products_collection.find({}, {"productName": 1}))
+    product_map = {p["productName"]: idx for idx, p in enumerate(all_products)}
+    product_ids = list(product_map.keys())
 
-        all_products = list(products.find({}, {"_id": 1, "productName": 1, "price": 1, "imageLink": 1}))
-        scores = [(p, user_items.get(str(p["_id"]), 0)) for p in all_products]
-        scores.sort(key=lambda x: x[1], reverse=True)
-        return [item[0] for item in scores[:top_n]]
+    n_products = len(product_ids)
+    if n_products == 0:
+        return None, []
 
-    except Exception as e:
-        print("Recommendation error:", e)
-        return list(products.find().limit(top_n))
+    # Create sparse matrix: rows = users, columns = products
+    user_map = {}
+    data, rows, cols = [], [], []
+
+    for act in activities:
+        user_id = act.get("customerId")
+        product_name = act.get("productName") or act.get("productId")
+        action = act.get("action", "view")
+        
+        if user_id not in user_map:
+            user_map[user_id] = len(user_map)
+        
+        if product_name in product_map:
+            weight = {"view": 1, "click": 3, "add-to-cart": 5, "purchase": 10}.get(action, 1)
+            data.append(weight)
+            rows.append(user_map[user_id])
+            cols.append(product_map[product_name])
+
+    if not data:
+        return None, []
+
+    interaction_matrix = csr_matrix((data, (rows, cols)), shape=(len(user_map), n_products))
+    
+    # Compute item-item similarity (cosine)
+    similarity_matrix = cosine_similarity(interaction_matrix.T)
+    return interaction_matrix, product_ids
+
+
+def cosine_similarity(matrix):
+    """Fast cosine similarity for sparse matrix"""
+    norm = np.sqrt((matrix.multiply(matrix)).sum(axis=1).A1)
+    norm[norm == 0] = 1.0
+    matrix = matrix.multiply(1.0 / norm[:, np.newaxis])
+    return matrix.dot(matrix.T).toarray()
+
 
 @app.route('/api/recommendations', methods=['GET'])
-def recommendations():
+def get_recommendations():
+    global similarity_matrix
+
     user_id = request.args.get('user_id')
-    if not user_id:
-        return jsonify({"products": []})
+    n_recommend = 12
 
-    recs = get_recommendations(user_id)
-    return jsonify({
-        "products": [{
-            "_id": str(p["_id"]),
-            "productName": p["productName"],
-            "price": p["price"],
-            "imageLink": p.get("imageLink")
-        } for p in recs]
-    })
+    if not similarity_matrix:
+        build_interaction_matrix()
 
-@app.route('/api/log-activity', methods=['POST'])
-def log_activity():
-    try:
-        data = request.json
-        users_activity.insert_one({
-            "user_id": data["user_id"],
-            "product_id": data["product_id"],
-            "action": data["action"],
-            "timestamp": datetime.utcnow()
-        })
-        return jsonify({"status": "logged"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    if not similarity_matrix or len(product_ids) == 0:
+        # Fallback: Popular products
+        popular = list(products_collection.find().sort("reviewCount", -1).limit(n_recommend))
+        return jsonify({"products": popular})
 
+    # Get user's past interactions
+    user_activities = list(activity_collection.find({"customerId": user_id}).sort("timestamp", -1).limit(50))
+    
+    if not user_activities:
+        # Cold start - return trending products
+        trending = list(products_collection.find().sort("reviewCount", -1).limit(n_recommend))
+        return jsonify({"products": trending})
+
+    # Build user preference vector
+    user_vector = np.zeros(len(product_ids))
+    product_map = {name: idx for idx, name in enumerate(product_ids)}
+
+    for act in user_activities:
+        prod_name = act.get("productName") or act.get("productId")
+        action = act.get("action", "view")
+        if prod_name in product_map:
+            weight = {"view": 1, "click": 3, "add-to-cart": 5, "purchase": 10}.get(action, 1)
+            # Recency boost
+            days_old = (datetime.utcnow() - act["timestamp"]).days
+            recency_factor = max(0.2, 1 - (days_old / 30))
+            user_vector[product_map[prod_name]] += weight * recency_factor
+
+    # Get top similar items
+    scores = similarity_matrix @ user_vector
+    top_indices = np.argsort(scores)[::-1][:n_recommend * 2]  # get more to allow diversity
+
+    recommended_products = []
+    seen_categories = set()
+
+    for idx in top_indices:
+        prod_name = product_ids[idx]
+        product = products_collection.find_one({"productName": prod_name})
+        if not product:
+            continue
+        cat = product.get("category", "")
+        if cat in seen_categories and len(recommended_products) > 6:
+            continue  # diversity
+        seen_categories.add(cat)
+        recommended_products.append(product)
+        if len(recommended_products) >= n_recommend:
+            break
+
+    return jsonify({"products": recommended_products})
+
+
+# Run the app
 if __name__ == '__main__':
+    # Build similarity matrix on startup
+    build_interaction_matrix()
+    print("✅ Advanced Hybrid Recommendation Engine Started")
     app.run(host='0.0.0.0', port=5000, debug=True)

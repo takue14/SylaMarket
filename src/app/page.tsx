@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import HomeClient from '@/components/HomeClient';
+import Loader from '@/components/Loader';
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -18,14 +19,17 @@ export default function Home() {
   }, [router]);
 
   if (!isLoggedIn) {
-    return <div style={{ textAlign: 'center', marginTop: '100px' }}>Redirecting to login...</div>;
+    return (
+      <div style={{ textAlign: 'center', marginTop: '100px' }}>
+        <Loader />
+      </div>
+    );
   }
 
-  // Fixed: Passing required props to HomeClient
   return (
-    <HomeClient 
-      initialCategory="all" 
-      initialProducts={[]} 
+    <HomeClient
+      initialCategory="all"
+      initialProducts={[]}
     />
   );
 }

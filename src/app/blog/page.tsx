@@ -16,8 +16,8 @@ const mockPosts: BlogPost[] = [
 
 export default function Blog() {
   return (
-    <main style={{ maxWidth: '1200px', margin: '2rem auto', padding: '0 1rem' }}>
-      <h1>Blog</h1>
+    <main style={{ maxWidth: '1200px', margin: '2rem auto', padding: '0 1rem',border:'1px var(--boarder)' }}>
+      <h1 style={{color:'var(--text-primary)'}}>Blog</h1>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
         {mockPosts.map(post => <BlogPostCard key={post.id} post={post} />)}
       </div>

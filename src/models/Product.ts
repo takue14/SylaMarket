@@ -11,10 +11,10 @@ const productSchema = new mongoose.Schema({
     ref: 'Seller', 
     required: true 
   },
+  quantity: { type: Number, default: 0, min: 0 },   // ← New field for stock
   createdAt: { type: Date, default: Date.now }
 });
 
-// This line is critical for Next.js App Router + Turbopack
 const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
 
 export default Product;

@@ -1,13 +1,13 @@
 // src/app/api/products/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
-import  Product  from '@/models/Product';
+import Product from '@/models/Product';
 import cloudinary from '@/lib/cloudinary';
 import type { UploadApiResponse } from 'cloudinary';
 
 export const config = {
   api: {
-    bodyParser: false, // Disable default body parser to handle multipart
+    bodyParser: false,
   },
 };
 
@@ -17,10 +17,16 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get('image') as File;
-    const { productName, price, category, description, sellerId } = Object.fromEntries(formData);
 
-    if (!file) {
-      return NextResponse.json({ message: 'Image is required' }, { status: 400 });
+    const productName = formData.get('productName') as string;
+    const price = parseFloat(formData.get('price') as string);
+    const category = formData.get('category') as string;
+    const description = formData.get('description') as string;
+    const quantity = parseInt(formData.get('quantity') as string) || 0;   // ← Fixed
+    const sellerId = formData.get('sellerId') as string;
+
+    if (!file || !productName || !price || !category || !sellerId) {
+      return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
     // Convert File to Buffer
@@ -43,11 +49,12 @@ export async function POST(req: NextRequest) {
 
     const newProduct = await Product.create({
       productName,
-      price: parseFloat(price as string),
+      price,
       category,
       description,
       imageLink,
       seller: sellerId,
+      quantity,                    // ← Now saved correctly
     });
 
     return NextResponse.json(newProduct, { status: 201 });
@@ -65,12 +72,10 @@ export async function GET(req: NextRequest) {
     const category = searchParams.get('category') || 'All';
     const search = searchParams.get('search') || '';
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = 10;
+    const limit = 10000;
 
     const query: Record<string, unknown> = {};
-    if (category !== 'All') {
-      query.category = category;
-    }
+    if (category !== 'All') query.category = category;
     if (search) {
       query.$or = [
         { productName: { $regex: search, $options: 'i' } },

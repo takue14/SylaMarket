@@ -25,10 +25,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Invalid phone or password' }, { status: 401 });
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       message: 'Login successful',
       deliveryGuyId: deliveryGuy._id.toString(),
     });
+
+    response.cookies.set('deliveryGuyId', deliveryGuy._id.toString(), {
+      httpOnly: true,                                    // not accessible via JS — safer against XSS
+      secure: process.env.NODE_ENV === 'production',     // HTTPS only in prod
+      sameSite: 'lax',                                   // protects against CSRF
+      path: '/',                                         // available site-wide
+      maxAge: 60 * 60 * 24 * 30,                        // 30 days — user stays logged in
+    });
+
+    return response;
 
   } catch (error) {
     console.error('Delivery login error:', error);

@@ -1,31 +1,30 @@
-// src/components/SearchBar.tsx (new: search functionality)
 'use client';
 
-import { useState } from 'react';
-import styles from '@/styles/SearchBar.module.css';
+import { Dispatch, SetStateAction } from 'react';
 
 interface SearchBarProps {
-  onSearch: (query: string) => void;
+  searchQuery: string;
+  setSearchQuery: Dispatch<SetStateAction<string>>;
 }
 
-export default function SearchBar({ onSearch }: SearchBarProps) {
-  const [query, setQuery] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSearch(query);
-  };
-
+export default function SearchBar({ searchQuery, setSearchQuery }: SearchBarProps) {
   return (
-    <form onSubmit={handleSubmit} className={styles.searchForm}>
+    <div style={{ marginBottom: '30px', position: 'relative' }}>
       <input
         type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search Syla"
-        className={styles.searchInput}
+        placeholder="Search products by name or description..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        style={{
+          width: '100%',
+          padding: '16px 20px',
+          fontSize: '1.1rem',
+          borderRadius: '12px',
+          border: '2px solid #e2e8f0',
+          outline: 'none',
+          transition: 'all 0.3s',
+        }}
       />
-      <button type="submit" className={styles.searchButton}>Search</button>
-    </form>
+    </div>
   );
 }
