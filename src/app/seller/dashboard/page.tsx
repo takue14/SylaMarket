@@ -247,10 +247,11 @@ const MobileAnalyticsCard = styled.div<{ bg: string; dark?: boolean }>`
 `;
 
 const OverviewBox = styled.div`
-  background: #161616;
+  background-color: var(--bg-base);
   border-radius: 24px;
   padding: 20px;
   margin-bottom: 25px;
+  color: var(--text-primary);
 `;
 
 const OverviewItem = styled.div`
@@ -269,7 +270,7 @@ const ProductList = styled.div`
 `;
 
 const MobileProductCard = styled.div`
-  background: #141414;
+  background: var(--bg-base);
   border-radius: 24px;
   padding: 16px;
   display: flex;
@@ -461,7 +462,7 @@ export default function SellerDashboard() {
             </AnalyticsGrid>
 
             <OverviewBox>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px',color: 'var(--text-primary)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px',color: 'var(--text-primary)',backgroundColor:'var(--bg-base)' }}>
                 <h3 style={{ color: 'var(--text-primary)'}}>Product Overview</h3>
                 <Link href="/seller/upload" style={{ textDecoration: 'none' }}>
                   <span style={{ color: 'var(--text-primary)'}}>Upload Products</span>

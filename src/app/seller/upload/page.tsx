@@ -14,42 +14,58 @@ export default function SellerUpload() {
   });
   const [image, setImage] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setUploading(true);
+    setError('');
 
     const sellerId = localStorage.getItem('sellerId');
-    if (!sellerId) return alert('Please login as seller');
+    if (!sellerId) {
+      setError('Please login as a seller first.');
+      return;
+    }
 
-    const data = new FormData();
-    data.append('productName', formData.productName);
-    data.append('price', formData.price);
-    data.append('category', formData.category);
-    data.append('description', formData.description);
-    data.append('quantity', formData.quantity);
-    data.append('sellerId', sellerId);
-    if (image) data.append('image', image);
+    setUploading(true);
 
-    const res = await fetch('/api/products', {
-      method: 'POST',
-      body: data,
-    });
+    try {
+      const data = new FormData();
+      data.append('productName', formData.productName);
+      data.append('price', formData.price);
+      data.append('category', formData.category);
+      data.append('description', formData.description);
+      data.append('quantity', formData.quantity);
+      data.append('sellerId', sellerId);
+      if (image) data.append('image', image);
 
-    if (res.ok) {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        body: data,
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.message || 'Upload failed');
+      }
+
       alert('Product uploaded successfully!');
       router.push('/seller/dashboard');
-    } else {
-      alert('Upload failed');
+
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   return (
     <StyledWrapper>
       <div className="form-container">
         <div className="logo-container">Upload New Product</div>
+
+        {error && <div className="error-banner">{error}</div>}
 
         <form className="form" onSubmit={handleSubmit}>
           <div className="form-group">
@@ -69,6 +85,8 @@ export default function SellerUpload() {
               type="number"
               placeholder="Enter price"
               value={formData.price}
+              min="0"
+              step="0.01"
               onChange={(e) => setFormData({ ...formData, price: e.target.value })}
               required
             />
@@ -108,7 +126,18 @@ export default function SellerUpload() {
 
           <div className="form-group">
             <label>Product Image</label>
-            <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0] || null)} />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setImage(e.target.files?.[0] || null)}
+            />
+            {image && (
+              <img
+                src={URL.createObjectURL(image)}
+                alt="Preview"
+                className="image-preview"
+              />
+            )}
           </div>
 
           <button className="form-submit-btn" type="submit" disabled={uploading}>
@@ -116,7 +145,11 @@ export default function SellerUpload() {
           </button>
         </form>
 
-        <button onClick={() => router.push('/seller/dashboard')} className="back-btn">
+        <button
+          onClick={() => router.push('/seller/dashboard')}
+          className="back-btn"
+          type="button"
+        >
           Go to My Dashboard
         </button>
       </div>
@@ -132,15 +165,14 @@ const StyledWrapper = styled.div`
   background: var(--bg-base);
   color: var(--text-primary);
 
-  
   .form-container {
     max-width: 500px;
     width: 100%;
     background-color: var(--bg-base);
     padding: 40px 30px;
-    border:var(--border);
+    border: var(--border);
     border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   }
 
   .logo-container {
@@ -149,6 +181,16 @@ const StyledWrapper = styled.div`
     font-weight: 700;
     margin-bottom: 30px;
     color: var(--text-primary);
+  }
+
+  .error-banner {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 14px;
   }
 
   .form {
@@ -174,6 +216,17 @@ const StyledWrapper = styled.div`
     border: 2px solid #d8b4fe;
     border-radius: 8px;
     font-size: 16px;
+    background: var(--bg-base);
+    color: var(--text-primary);
+  }
+
+  .image-preview {
+    margin-top: 10px;
+    width: 100%;
+    max-height: 200px;
+    object-fit: contain;
+    border-radius: 8px;
+    border: 2px solid #d8b4fe;
   }
 
   .form-submit-btn {
@@ -184,6 +237,15 @@ const StyledWrapper = styled.div`
     border-radius: 10px;
     font-size: 18px;
     cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background: #6d28d9;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
   }
 
   .back-btn {
@@ -195,5 +257,9 @@ const StyledWrapper = styled.div`
     border: none;
     border-radius: 10px;
     cursor: pointer;
+
+    &:hover {
+      background: #4b5563;
+    }
   }
 `;
