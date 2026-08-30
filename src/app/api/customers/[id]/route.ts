@@ -1,21 +1,25 @@
 import { NextResponse } from 'next/server';
 import { connectToDB } from '@/lib/mongoose';
 import Customer from '@/models/Customer';
+import { getSession } from '@/lib/session';
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectToDB();
+    const { id } = await params;
 
-    const { id } = await params;   // ← This is the required fix for Next.js 15
+    const customerSession = await getSession('customer');
+    const adminSession = customerSession ? null : await getSession('admin');
 
-    const customer = await Customer.findById(id).select('name contact email');
-
-    if (!customer) {
-      return NextResponse.json({ message: 'Customer not found' }, { status: 404 });
+    if (!(customerSession?.id === id) && !adminSession) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
+
+    await connectToDB();
+    const customer = await Customer.findById(id).select('name contact email');
+    if (!customer) return NextResponse.json({ message: 'Customer not found' }, { status: 404 });
 
     return NextResponse.json(customer);
   } catch (error) {

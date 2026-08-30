@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 
 import Header from '../components/Header';
@@ -7,8 +7,18 @@ import Footer from '../components/Footer';
 import MobileBottomBar from '@/components/MobileBottomBar';
 import { CartProvider } from '../context/CartContext';
 import { ProductProvider } from '@/contexts/ProductContext';
+import { NotificationProvider } from '@/context/NotificationContext';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = localFont({
+  src: [
+    { path: './fonts/Inter-Regular.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/Inter-Medium.woff2', weight: '500', style: 'normal' },
+    { path: './fonts/Inter-SemiBold.woff2', weight: '600', style: 'normal' },
+    { path: './fonts/Inter-Bold.woff2', weight: '700', style: 'normal' },
+  ],
+  display: 'swap',
+  variable: '--font-inter',
+});
 
 export const metadata: Metadata = {
   title: 'Dealo',
@@ -29,14 +39,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <CartProvider>
-          <ProductProvider>
-            <Header />
-            {children}
-            <Footer />
-            <MobileBottomBar />
-          </ProductProvider>
-        </CartProvider>
+                <NotificationProvider>
+          <CartProvider>
+            <ProductProvider>
+              <Header />
+              <div style={{ paddingTop: 'var(--header-height)' }}>
+                {children}
+              </div>
+              <Footer />
+              <MobileBottomBar />
+            </ProductProvider>
+          </CartProvider>
+        </NotificationProvider>
       </body>
     </html>
   );

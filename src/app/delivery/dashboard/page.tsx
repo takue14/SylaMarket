@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
+import LocationSettings from '@/components/LocationSettings';
 
 interface OrderItem {
   productName: string;
@@ -282,7 +283,7 @@ export default function DeliveryDashboard() {
   const router = useRouter();
 
   const fetchOrders = async () => {
-    const res = await fetch('/api/orders');
+    const res = await fetch('/api/orders?as=delivery');
     if (res.ok) {
       let data = await res.json();
       const now = new Date();
@@ -311,7 +312,7 @@ export default function DeliveryDashboard() {
     const res = await fetch('/api/orders', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, status: 'inprogress', claimedBy: deliveryGuyId }),
+            body: JSON.stringify({ orderId, status: 'inprogress' }),
     });
     if (res.ok) fetchOrders();
   };
@@ -467,6 +468,10 @@ export default function DeliveryDashboard() {
 
       {/* ── Analysis: same card design as SellerDashboard ── */}
       {activeTab === 'analysis' && (
+        <>
+        <div style={{ marginBottom: 20 }}>
+      <LocationSettings role="delivery" userId={deliveryGuyId!} />
+    </div>
         <AnalyticsGrid>
           <AnalyticsCard bg="#dcc6f5">
             <div className="label">Today</div>
@@ -493,6 +498,7 @@ export default function DeliveryDashboard() {
             <div className="value">${overallRevenue.toLocaleString()}</div>
           </AnalyticsCard>
         </AnalyticsGrid>
+        </>
       )}
 
     </DashboardContainer>

@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import ImageCarousel from './ImageCarousel';
 import { CSSProperties } from 'react';
 import styles from '@/styles/ProductCard.module.css';
 import { Product } from '@/types/product';
@@ -73,17 +73,12 @@ export default function ProductCard({ product, onClick }: Props) {
       <div className={styles.card__content}>
         <div className={styles.card__badge}>NEW</div>
 
-        {product.imageLink && (
-          <Image
-            src={product.imageLink}
-            alt={product.productName}
-            width={200}
-            height={150}
-            className={styles.card__image}
-            style={imageStyle}
-            priority={false}
-          />
-        )}
+                <ImageCarousel
+          images={product.images?.length ? product.images : product.imageLink ? [product.imageLink] : []}
+          alt={product.productName}
+          height={150}
+          borderRadius={12}
+        />
 
         <div className={styles.card__text}>
           <h3 className={styles.card__title}>{product.productName}</h3>

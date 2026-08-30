@@ -10,6 +10,11 @@ import HorizontalCard from './HorizontalCard';
 import Ads from './Ads';
 import Notfound from '../../src/app/not-found';
 import Loader from './Loader';
+import CategoryMosaicCard from './CategoryMosaicCard';
+import CategoryProductsPanel from './CategoryProductsPanel';
+import StoreSpotlightCard from './StoreSpotlightCard';
+import { useUserLocation } from '@/hooks/useUserLocation';
+import CountryPicker from './CountryPicker';
 
 import {
   FaHome,
@@ -49,6 +54,7 @@ interface RawAd {
 interface HomeClientProps {
   initialCategory: string;
   initialProducts: Product[];
+  segment?: 'dealo' | 'dealo-fresh';
 }
 
 /* =========================
@@ -120,6 +126,31 @@ const CategoryGrid = styled.div`
     margin-top: 20px;
   }
 `;
+
+const Grid3 = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+
+  @media (max-width: 480px) {
+    gap: 6px;
+  }
+`;
+
+const HRow = styled.div`
+  display: flex;
+  gap: 10px;
+
+  > * {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  @media (max-width: 480px) {
+    gap: 6px;
+  }
+`;
+
 
 const StyledWrapper = styled.div`
   .btn {
@@ -264,11 +295,16 @@ const Backdrop = styled.div<{ isOpen: boolean }>`
 export default function HomeClient({
   initialCategory,
   initialProducts,
+  segment = 'dealo',
 }: HomeClientProps) {
 
   const [cardsPerRow, setCardsPerRow] = useState(5);
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<Product[]>(initialProducts || []);
+  const segmentProducts = useMemo(
+    () => products.filter((p) => (p.segment || 'dealo') === segment),
+    [products, segment]
+  );
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -283,7 +319,7 @@ export default function HomeClient({
   const [ads, setAds] = useState<AdItem[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState('shop');
-
+const [activeCategoryModal, setActiveCategoryModal] = useState<string | null>(null); // ADD THIS
   /* =========================
      EFFECTS
   ========================= */
@@ -326,9 +362,17 @@ export default function HomeClient({
      PRODUCTS
   ========================= */
 
+   const { coords, country, status, setManualCountry } = useUserLocation(customerId);
+
   const loadProducts = async (pageNum: number) => {
     setLoading(true);
-    const res = await fetch(`/api/products?page=${pageNum}&limit=${limit}`);
+    const params = new URLSearchParams({ page: String(pageNum), limit: String(limit) });
+    if (coords) {
+      params.set('lat', String(coords.lat));
+      params.set('lng', String(coords.lng));
+    }
+    if (country) params.set('country', country);
+    const res = await fetch(`/api/products?${params.toString()}`);
     if (res.ok) {
       const data = await res.json();
       setProducts(prev => [...prev, ...data]);
@@ -336,9 +380,14 @@ export default function HomeClient({
     setLoading(false);
   };
 
-  useEffect(() => {
-    if (products.length === 0) loadProducts(1);
-  }, []);
+    useEffect(() => {
+    // Wait until location resolution has settled (saved, denied, or
+    // manually picked) before the first fetch, so it's filtered/sorted
+    // correctly from the start instead of loading unfiltered then refetching.
+    if (products.length === 0 && (status === 'saved' || status === 'denied' || status === 'manual' || status === 'unsupported')) {
+      loadProducts(1);
+    }
+  }, [status]);
 
   /* =========================
      RECOMMENDATIONS
@@ -356,14 +405,13 @@ export default function HomeClient({
         }
       }
     } catch (err) {}
-    const random = [...products].sort(() => 0.5 - Math.random()).slice(0, 8);
+    const random = [...segmentProducts].sort(() => 0.5 - Math.random()).slice(0, 8);
     setRecommended(random);
   };
 
   useEffect(() => {
     loadRecommendations();
-  }, [customerId, products]);
-
+  }, [customerId, segmentProducts]);
   /* =========================
      ADS
   ========================= */
@@ -395,8 +443,10 @@ export default function HomeClient({
      FILTER PRODUCTS
   ========================= */
 
+
+
   const filteredProducts = useMemo(() => {
-    let filtered = [...products];
+    let filtered = [...segmentProducts];
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -419,7 +469,7 @@ export default function HomeClient({
   ========================= */
 
   const horizontalProducts = useMemo(() => {
-    const shuffled = [...products].sort(() => 0.5 - Math.random());
+    const shuffled = [...segmentProducts].sort(() => 0.5 - Math.random());
     const diverse: Product[] = [];
     const seenCategories = new Set<string>();
     for (const p of shuffled) {
@@ -457,6 +507,49 @@ export default function HomeClient({
     return cats.sort(() => 0.5 - Math.random()).slice(0, 5);
   }, [products]);
 
+
+  const allMosaicCategories = useMemo(() => {
+  const catMap = new Map<string, Product[]>();
+  segmentProducts.forEach(p => {
+    if (!catMap.has(p.category)) catMap.set(p.category, []);
+    catMap.get(p.category)!.push(p);
+  });
+  return Array.from(catMap.entries()).map(([category, catProducts]) => ({
+    category,
+    images: catProducts.slice(0, 4).map(p => p.imageLink || '/placeholder.png'),
+    moreCount: Math.max(catProducts.length - 4, 0),
+  }));
+}, [segmentProducts]);
+
+const mosaicTop = useMemo(() => allMosaicCategories.slice(0, 6), [allMosaicCategories]);
+const mosaicBottom = useMemo(() => allMosaicCategories.slice(6, 12), [allMosaicCategories]);
+
+
+const getMosaicBatch = (offset: number) => {
+  if (allMosaicCategories.length === 0) return [];
+  const batch: typeof allMosaicCategories = [];
+  for (let i = 0; i < 6; i++) {
+    batch.push(allMosaicCategories[(offset + i) % allMosaicCategories.length]);
+  }
+  return batch;
+};
+
+
+const spotlightStores = useMemo(() => {
+  const colors = ['#123a63', '#0e3d2f', '#3a1e5c', '#4a1420'];
+  return allMosaicCategories.slice(0, 4).map((c, i) => ({
+    category: c.category,
+    image: c.images[0],
+    bg: colors[i % colors.length],
+  }));
+}, [allMosaicCategories]);
+
+const categoryModalProducts = useMemo(() => {
+  if (!activeCategoryModal) return [];
+  return segmentProducts.filter(p => p.category === activeCategoryModal);
+}, [segmentProducts, activeCategoryModal]);
+
+
   const horizontalInsertIndex = 24;
 
   /* =========================
@@ -490,9 +583,49 @@ export default function HomeClient({
       <div style={{ marginBottom: '40px', maxWidth: '1500px', margin: '10 auto' }}>
         <Ads ads={ads} />
       </div>
+{/* TOP CATEGORY MOSAIC */}
+<div style={{ marginBottom: '50px', maxWidth: '1500px', margin: '0 auto 50px auto' }}>
+  <h2 style={{ marginBottom: '15px', color: 'var(--text-primary)', paddingLeft: '10px' }}>
+    Discover by Category
+  </h2>
+  <Grid3>
+    {mosaicTop.map(({ category, images, moreCount }) => (
+      <CategoryMosaicCard
+        key={category}
+        label={category}
+        images={images}
+        moreCount={moreCount}
+        onClick={() => setActiveCategoryModal(category)}
+      />
+    ))}
+  </Grid3>
+</div>
+
+{/* STORES IN SPOTLIGHT — horizontal, not scrollable */}
+<div style={{ marginBottom: '30px', maxWidth: '1500px', margin: '0 auto' }}>
+  <h2 style={{ marginBottom: '15px', color: 'var(--text-primary)', paddingLeft: '10px' }}>
+    You Might Also Like
+  </h2>
+  <HRow>
+    {spotlightStores.map(s => (
+      <StoreSpotlightCard
+        key={s.category}
+        label={s.category}
+        image={s.image}
+        bg={s.bg}
+        onClick={() => setActiveCategoryModal(s.category)}
+      />
+    ))}
+  </HRow>
+</div>
+
+
 
       {/* MAIN */}
       <div className={styles.mainContent}>
+              {status === 'denied' && !country && (
+        <CountryPicker onSelect={setManualCountry} />
+      )}
         <main className={styles.productGrid}>
           <div className={styles.grid}>
 
@@ -524,6 +657,26 @@ export default function HomeClient({
                           />
                         ))}
                       </div>
+
+<div style={{ marginTop: '20px', marginBottom: '10px' }}>
+      <h3 style={{ marginBottom: '10px', color: 'var(--text-primary)' }}>
+        Discover by Category
+      </h3>
+      <Grid3>
+        {getMosaicBatch(Math.floor(index / horizontalInsertIndex) * 6).map(({ category, images, moreCount }) => (
+          <CategoryMosaicCard
+            key={`${category}-${index}`}
+            label={category}
+            images={images}
+            moreCount={moreCount}
+            onClick={() => setActiveCategoryModal(category)}
+          />
+        ))}
+      </Grid3>
+    </div>
+  
+
+                      
                     </div>
                   )}
                 </Fragment>
@@ -548,38 +701,46 @@ export default function HomeClient({
       </div>
 
       {/* CATEGORIES */}
-      <div style={{ marginTop: '0px', maxWidth: '1500px', margin: 'auto' }}>
-        <h2 style={{ marginBottom: '10px', color: 'var(--text-primary)' }}>
-          Discover by Category
-        </h2>
-
-        <CategoryGrid className="category-mobile-grid">
-          {randomCategories.map(category => {
-            const categoryProducts = products
-              .filter(p => p.category === category)
-              .sort(() => 0.5 - Math.random())
-              .slice(0, 4);
-
-            const randomColor = greyColors[Math.floor(Math.random() * greyColors.length)];
-
-            return (
-              <CategoryCard key={category} headerColor={randomColor}>
-                <div className="category-header">{category}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', padding: '12px' }}>
-                  {categoryProducts.map(product => (
-                    <RecommendedCard key={product._id} product={product} onClick={() => openModal(product)} />
-                  ))}
-                </div>
-              </CategoryCard>
-            );
-          })}
-        </CategoryGrid>
-      </div>
+      {/* BOTTOM CATEGORY MOSAIC — replaces old Discover-by-Category grid */}
+<div style={{ marginTop: '10px', marginBottom: '40px', maxWidth: '1500px', margin: '0 auto' }}>
+  <h2 style={{ marginBottom: '15px', color: 'var(--text-primary)', paddingLeft: '10px' }}>
+    Discover by Category
+  </h2>
+  <Grid3>
+    {mosaicBottom.map(({ category, images, moreCount }) => (
+      <CategoryMosaicCard
+        key={category}
+        label={category}
+        images={images}
+        moreCount={moreCount}
+        onClick={() => setActiveCategoryModal(category)}
+      />
+    ))}
+  </Grid3>
+</div>
 
       {/* PRODUCT MODAL */}
-      {selectedProduct && (
-        <ProductModal product={selectedProduct} isOpen={true} onClose={closeModal} />
+            {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          isOpen={true}
+          onClose={closeModal}
+          onSelectRelated={(p) => openModal(p)}
+        />
       )}
+
+
+{/* CATEGORY FLOATING PANEL — ADD THIS */}
+<CategoryProductsPanel
+  category={activeCategoryModal}
+  products={categoryModalProducts}
+  onClose={() => setActiveCategoryModal(null)}
+  onProductClick={(product) => {
+    setActiveCategoryModal(null);
+    openModal(product);
+  }}
+/>
+
 
       {/* FILTER SIDEBAR */}
       <FloatingSidebar isOpen={isFilterOpen}>

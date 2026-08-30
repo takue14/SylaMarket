@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 
 const StyledWrapper = styled.div`
@@ -23,38 +23,25 @@ const StyledWrapper = styled.div`
 
   .bell-container {
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .bell {
-    border: 2.5px solid #333;
-    border-radius: 10px 10px 0 0;
-    width: 15px;
-    height: 15px;
-    background: transparent;
+    width: 20px;
+    height: 20px;
     display: block;
-    position: relative;
   }
 
-  .bell::before,
-  .bell::after {
-    content: "";
-    background: #333;
-    display: block;
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-  }
-
-  .bell::before {
-    top: 80%;
-    width: 15px;
-    height: 3px;
-  }
-
-  .bell::after {
-    top: calc(100% + 5px);
-    width: 10px;
-    height: 3px;
+  .bell svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: #333;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .notification-count {
@@ -96,7 +83,13 @@ export default function NotificationBell({ itemCount }: NotificationBellProps) {
     <StyledWrapper>
       <div className="notification">
         <div className="bell-container">
-          <div className="bell" />
+          <div className="bell">
+            <svg viewBox="0 0 24 24">
+              <circle cx="9" cy="21" r="1" />
+              <circle cx="20" cy="21" r="1" />
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+            </svg>
+          </div>
         </div>
         {itemCount > 0 && (
           <div className="notification-count">{itemCount}</div>

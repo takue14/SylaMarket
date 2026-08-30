@@ -11,6 +11,7 @@ interface FormData {
   price: number;
   category: string;
   description: string;
+  segment: 'dealo' | 'dealo-fresh';
 }
 
 interface SellerUploadFormProps {
@@ -123,6 +124,7 @@ export default function SellerUploadForm({ onSuccess }: SellerUploadFormProps) {
     price: 0,
     category: '',
     description: '',
+    segment: 'dealo',
   });
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -159,6 +161,7 @@ export default function SellerUploadForm({ onSuccess }: SellerUploadFormProps) {
     uploadFormData.append('price', formData.price.toString());
     uploadFormData.append('category', formData.category);
     uploadFormData.append('description', formData.description);
+    uploadFormData.append('segment', formData.segment);
     uploadFormData.append('image', file);
     uploadFormData.append('sellerId', sellerId);
 
@@ -169,7 +172,7 @@ export default function SellerUploadForm({ onSuccess }: SellerUploadFormProps) {
       });
       if (res.ok) {
         alert('Product uploaded successfully!');
-        setFormData({ productName: '', price: 0, category: '', description: '' });
+        setFormData({ productName: '', price: 0, category: '', description: '', segment: 'dealo' });
         setFile(null);
         setPreview(null);
         onSuccess?.();
@@ -210,17 +213,14 @@ export default function SellerUploadForm({ onSuccess }: SellerUploadFormProps) {
               min={0}
             />
             <select
-              name="category"
-              value={formData.category}
+              name="segment"
+              value={formData.segment}
               onChange={handleChange}
               className="inputTab"
               required
             >
-              <option value="">Select Category</option>
-              <option value="For Home">For Home</option>
-              <option value="For Music">For Music</option>
-              <option value="For Phone">For Phone</option>
-              <option value="Other">Other</option>
+              <option value="dealo">Dealo (general marketplace)</option>
+              <option value="dealo-fresh">Dealo Fresh (home basics — groceries, kitchenware)</option>
             </select>
             <textarea
               name="description"

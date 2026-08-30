@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
+import { useNotification } from '@/context/NotificationContext';
 
 interface Order {
   totalAmount: number;
@@ -248,9 +249,62 @@ const SellerBadge = styled.span`
   border-radius: 20px;
 `;
 
+
+const SellerReviewCard = styled.div`
+  background: linear-gradient(145deg, #1b1b22, #111116);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .seller-name { font-size: 15px; font-weight: 700; color: #e5e5e5; }
+  .seller-sub { font-size: 12.5px; color: #9b9ba3; margin-top: 2px; }
+
+  .seller-photos {
+    display: flex;
+    gap: 12px;
+    a {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: #818cf8;
+      text-decoration: none;
+    }
+    img {
+      width: 96px;
+      height: 96px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid #26262e;
+    }
+  }
+
+  .seller-actions {
+    display: flex;
+    gap: 10px;
+  }
+`;
+
+const ApproveBtn = styled.button`
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  &:hover { opacity: 0.85; }
+  &:disabled { cursor: not-allowed; opacity: 0.6; }
+`;
 // ================== COMPONENT ==================
 
 export default function AdminDashboard() {
+  const { notify, confirmAction } = useNotification();
   const [products, setProducts] = useState<Product[]>([]);
   const [analytics, setAnalytics] = useState<Analytics>({
     totalRevenue: 0,
@@ -259,11 +313,121 @@ export default function AdminDashboard() {
     activeSellers: 0,
   });
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+
+  interface PendingDelivery {
+    _id: string;
+    name: string;
+    contact: string;
+    idPhotoUrl: string;
+    livePhotoUrl: string;
+  }
+  const [pendingDelivery, setPendingDelivery] = useState<PendingDelivery[]>([]);
+
+
+  interface PendingSeller {
+    _id: string;
+    name: string;
+    businessName: string;
+    contact: string;
+    ecocashNumber: string;
+    idPhotoUrl: string;
+    livePhotoUrl: string;
+  }
+  const [pendingSellers, setPendingSellers] = useState<PendingSeller[]>([]);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+
+
   const router = useRouter();
+useEffect(() => {
+    fetchProductsAndAnalytics();
+    fetchPendingSellers();
+    fetchPendingDelivery();
+  }, []);
+
+  const fetchPendingDelivery = async () => {
+    try {
+      const res = await fetch('/api/admin/delivery');
+      if (res.status === 401) {
+        router.push('/admin/login');
+        return;
+      }
+      if (!res.ok) return;
+      const data = await res.json();
+      setPendingDelivery(data.deliveryGuys || []);
+    } catch (err) {
+      console.error('Failed to fetch pending delivery guys', err);
+    }
+  };
+
+  const handleDeliveryVerify = async (id: string, action: 'approve' | 'reject') => {
+    if (action === 'reject' && !confirm('Reject this delivery application?')) return;
+    setVerifyingId(id);
+    try {
+      const reason = action === 'reject' ? prompt('Reason for rejection (optional):') || '' : undefined;
+      const res = await fetch(`/api/admin/delivery/${id}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, reason }),
+      });
+      if (res.ok) {
+        setPendingDelivery((prev) => prev.filter((d) => d._id !== id));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || 'Failed to update delivery status');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error');
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
 
   useEffect(() => {
     fetchProductsAndAnalytics();
+    fetchPendingSellers();
   }, []);
+
+const fetchPendingSellers = async () => {
+    try {
+      const res = await fetch('/api/admin/sellers');
+      if (res.status === 401) {
+        router.push('/admin/login');
+        return;
+      }
+      if (!res.ok) return;
+      const data = await res.json();
+      setPendingSellers(data.sellers || []);
+    } catch (err) {
+      console.error('Failed to fetch pending sellers', err);
+    }
+  };
+
+  const handleSellerVerify = async (id: string, action: 'approve' | 'reject') => {
+    if (action === 'reject' && !confirm('Reject this seller application?')) return;
+    setVerifyingId(id);
+    try {
+      const reason = action === 'reject' ? prompt('Reason for rejection (optional):') || '' : undefined;
+      const res = await fetch(`/api/admin/sellers/${id}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, reason }),
+      });
+      if (res.ok) {
+        setPendingSellers((prev) => prev.filter((s) => s._id !== id));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || 'Failed to update seller status');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error');
+    } finally {
+      setVerifyingId(null);
+    }
+  };
 
   const fetchProductsAndAnalytics = async () => {
     try {
@@ -288,19 +452,21 @@ export default function AdminDashboard() {
     }
   };
 
-  const deleteProduct = async (id: string) => {
-    if (!confirm('Delete this product permanently from the database?')) return;
+    const deleteProduct = async (id: string) => {
+    const ok = await confirmAction('Delete this product permanently from the database?');
+    if (!ok) return;
     setDeletingId(id);
     try {
       const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchProductsAndAnalytics();
+        notify('Product deleted.', 'success');
       } else {
-        alert('Failed to delete product');
+        notify('Failed to delete product', 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error');
+      notify('Network error', 'error');
     } finally {
       setDeletingId(null);
     }
@@ -317,6 +483,11 @@ export default function AdminDashboard() {
 
       {/* ── Navigation buttons ── */}
       <NavRow>
+        <NavBtn variant="purple" onClick={() => router.push('/admin/listings')}>
+          <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
+          DealoAc Listings
+        </NavBtn>
+        
         <NavBtn variant="purple" onClick={() => router.push('/admin/inquiries')}>
           {/* Message icon */}
           <svg viewBox="0 0 24 24">
@@ -357,6 +528,98 @@ export default function AdminDashboard() {
         </AnalyticsCard>
       </AnalyticsGrid>
 
+
+
+      
+
+{/* ── Pending Seller Verifications ── */}
+      <SectionTitle style={{ color: 'var(--text-primary)' }}>
+        Pending Seller Verifications {pendingSellers.length > 0 && `(${pendingSellers.length})`}
+      </SectionTitle>
+
+      {pendingSellers.length === 0 ? (
+        <p style={{ color: '#8b8b95', fontSize: 13.5, marginBottom: 32 }}>
+          No sellers awaiting review.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 32 }}>
+          {pendingSellers.map((seller) => (
+            <SellerReviewCard key={seller._id}>
+              <div className="seller-info">
+                <div className="seller-name">{seller.businessName}</div>
+                <div className="seller-sub">{seller.name} · {seller.contact} · EcoCash: {seller.ecocashNumber}</div>
+              </div>
+              <div className="seller-photos">
+                <a href={seller.idPhotoUrl} target="_blank" rel="noopener noreferrer">
+                  <img src={seller.idPhotoUrl} alt="ID photo" />
+                  <span>ID photo</span>
+                </a>
+                <a href={seller.livePhotoUrl} target="_blank" rel="noopener noreferrer">
+                  <img src={seller.livePhotoUrl} alt="Live photo" />
+                  <span>Live photo</span>
+                </a>
+              </div>
+              <div className="seller-actions">
+                <ApproveBtn
+                  disabled={verifyingId === seller._id}
+                  onClick={() => handleSellerVerify(seller._id, 'approve')}
+                >
+                  {verifyingId === seller._id ? '…' : 'Approve'}
+                </ApproveBtn>
+                <DeleteBtn
+                  disabled={verifyingId === seller._id}
+                  onClick={() => handleSellerVerify(seller._id, 'reject')}
+                >
+                  {verifyingId === seller._id ? '…' : 'Reject'}
+                </DeleteBtn>
+              </div>
+            </SellerReviewCard>
+          ))}
+        </div>
+      )}
+
+      
+
+{/* ── Pending Delivery Verifications ── */}
+      <SectionTitle style={{ color: 'var(--text-primary)' }}>
+        Pending Delivery Verifications {pendingDelivery.length > 0 && `(${pendingDelivery.length})`}
+      </SectionTitle>
+
+      {pendingDelivery.length === 0 ? (
+        <p style={{ color: '#8b8b95', fontSize: 13.5, marginBottom: 32 }}>
+          No delivery applications awaiting review.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 32 }}>
+          {pendingDelivery.map((d) => (
+            <SellerReviewCard key={d._id}>
+              <div className="seller-info">
+                <div className="seller-name">{d.name}</div>
+                <div className="seller-sub">{d.contact}</div>
+              </div>
+              <div className="seller-photos">
+                <a href={d.idPhotoUrl} target="_blank" rel="noopener noreferrer">
+                  <img src={d.idPhotoUrl} alt="ID photo" />
+                  <span>ID photo</span>
+                </a>
+                <a href={d.livePhotoUrl} target="_blank" rel="noopener noreferrer">
+                  <img src={d.livePhotoUrl} alt="Live photo" />
+                  <span>Live photo</span>
+                </a>
+              </div>
+              <div className="seller-actions">
+                <ApproveBtn disabled={verifyingId === d._id} onClick={() => handleDeliveryVerify(d._id, 'approve')}>
+                  {verifyingId === d._id ? '…' : 'Approve'}
+                </ApproveBtn>
+                <DeleteBtn disabled={verifyingId === d._id} onClick={() => handleDeliveryVerify(d._id, 'reject')}>
+                  {verifyingId === d._id ? '…' : 'Reject'}
+                </DeleteBtn>
+              </div>
+            </SellerReviewCard>
+          ))}
+        </div>
+      )}
+      
       {/* ── Products Table ── */}
       <SectionTitle style={{ color: 'var(--text-primary)'}}>All Products — All Sellers</SectionTitle>
 

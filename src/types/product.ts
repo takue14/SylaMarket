@@ -5,7 +5,9 @@ export interface Product {
   price: number;
   category: string;
   description?: string;
-  imageLink?: string;
+    imageLink?: string;
+  images?: string[];
+  segment?: 'dealo' | 'dealo-fresh';
   seller: {
     _id: string;
     businessName: string;

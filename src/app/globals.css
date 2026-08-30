@@ -11,7 +11,13 @@
   --text-dim:      #6b6b76;
   --accent:        #5b6cff;
 }
-
+:root {
+  --header-height: fit-content;
+}
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
 /* Light mode overrides */
 html.light {
   --bg-base:       #f4f4f8;

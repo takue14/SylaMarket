@@ -5,6 +5,9 @@ import Image from 'next/image';
 import { Product } from '@/types/product';
 import { useCart } from '@/context/CartContext';
 import styled from 'styled-components';
+import { useNotification } from '@/context/NotificationContext';
+import ImageCarousel from './ImageCarousel';
+
 
 interface Review {
   _id: string;
@@ -18,6 +21,7 @@ interface ProductModalProps {
   product: Product;
   isOpen: boolean;
   onClose: () => void;
+  onSelectRelated?: (product: Product) => void;
 }
 
 // ================== STYLES ==================
@@ -134,6 +138,12 @@ const Description = styled.p`
   color: var(--text-muted);
   line-height: 1.6;
 `;
+const SellerLine = styled.p`
+  margin: -4px 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+`;
 
 const ActionRow = styled.div`
   display: flex;
@@ -158,6 +168,65 @@ const AddToCartBtn = styled.button`
     background: var(--accent);
     color: white;
     transform: translateY(-2px);
+  }
+`;
+const RelatedRow = styled.div`
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+`;
+
+const RelatedCard = styled.div`
+  flex: 0 0 180px;
+  background: var(--bg-card, #eef0e4);
+  border-radius: 22px;
+  padding: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: translateY(-3px);
+  }
+
+  .rc-price {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 2;
+    background: rgba(0, 0, 0, 0.55);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+
+  .rc-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 4px 2px;
+  }
+
+  h4 {
+    font-size: 13.5px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary, #111);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 110px;
+  }
+
+  .rc-order {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent, #5b6cff);
+    white-space: nowrap;
   }
 `;
 
@@ -261,6 +330,8 @@ const BuyNowWrapper = styled.div`
   .button:hover::before {
     bottom: calc(var(--height) + var(--gap-between-tooltip-to-button));
   }
+
+  
 `;
 
 const Divider = styled.div`
@@ -479,13 +550,15 @@ const StarLabel = styled.p`
 
 // ================== COMPONENT ==================
 
-export default function ProductModal({ product, isOpen, onClose }: ProductModalProps) {
-  const { addToCart } = useCart();
+export default function ProductModal({ product, isOpen, onClose, onSelectRelated }: ProductModalProps) {
+  const { addToCart, buyNow } = useCart();
+  const { notify } = useNotification();
 
-  const [comment, setComment] = useState('');
+    const [comment, setComment] = useState('');
   const [rating, setRating] = useState(5);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
+  const [related, setRelated] = useState<Product[]>([]);
 
   useEffect(() => {
     if (!isOpen || !product._id) return;
@@ -505,15 +578,22 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
     fetchReviews();
   }, [isOpen, product._id]);
 
+    useEffect(() => {
+    if (!isOpen || !product.category) return;
+    fetch(`/api/products?category=${encodeURIComponent(product.category)}&limit=10`)
+      .then((res) => res.json())
+      .then((data: Product[]) => setRelated(data.filter((p) => p._id !== product._id).slice(0, 8)))
+      .catch(() => setRelated([]));
+  }, [isOpen, product.category, product._id]);
+
   const handleAddToCart = () => {
-    addToCart(product);
-    alert(`${product.productName} added to cart!`);
+    const added = addToCart(product);
+    if (added) notify(`${product.productName} added to cart!`, 'success');
   };
 
   const handleBuyNow = () => {
-    addToCart(product);
-    onClose();
-    window.location.href = '/cart';
+    const proceeded = buyNow(product);
+    if (proceeded) onClose();
   };
 
   const handleSubmitReview = async (e: React.FormEvent) => {
@@ -534,11 +614,12 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
         const newReview = await res.json();
         setReviews(prev => [newReview, ...prev]);
         setComment('');
-        alert('Review submitted successfully!');
+        notify('Review submitted successfully!', 'success');
       }
     } catch (err) {
-      alert('Failed to submit review');
+      notify('Failed to submit review', 'error');
     }
+  
   };
 
   if (!isOpen) return null;
@@ -550,23 +631,20 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
         <CloseBtn onClick={onClose}>×</CloseBtn>
 
         <TopSection>
-          <ImageSection>
-            {product.imageLink && (
-              <Image
-                src={product.imageLink}
-                alt={product.productName}
-                width={320}
-                height={320}
-                priority
-                style={{ borderRadius: '16px', objectFit: 'cover', width: '100%', height: 'auto' }}
-              />
-            )}
+                   <ImageSection>
+            <ImageCarousel
+              images={product.images?.length ? product.images : product.imageLink ? [product.imageLink] : []}
+              alt={product.productName}
+              height={240}
+              borderRadius={16}
+            />
           </ImageSection>
 
           <DetailsSection>
             <ProductTitle>{product.productName}</ProductTitle>
             <PriceTag>${product.price.toFixed(2)}</PriceTag>
-            <Description>{product.description || 'No description available.'}</Description>
+                        <Description>{product.description || 'No description available.'}</Description>
+            <SellerLine>Sold by {product.seller?.businessName || product.seller?.name || 'Unknown seller'}</SellerLine>
 
             <ActionRow>
               <AddToCartBtn onClick={handleAddToCart}>+ Add to Cart</AddToCartBtn>
@@ -651,6 +729,32 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
           </FormBox>
         </ReviewsSection>
 
+
+        {related.length > 0 && (
+          <>
+            <Divider />
+            <ReviewsSection>
+              <SectionTitle>You may also like</SectionTitle>
+              <RelatedRow>
+                                {related.map((r) => (
+                  <RelatedCard key={r._id} onClick={() => onSelectRelated?.(r)}>
+                    <div className="rc-price">${r.price.toFixed(0)}$</div>
+                    <ImageCarousel
+                      images={r.images?.length ? r.images : r.imageLink ? [r.imageLink] : []}
+                      alt={r.productName}
+                      height={140}
+                      borderRadius={20}
+                    />
+                    <div className="rc-body">
+                      <h4>{r.productName}</h4>
+                      <span className="rc-order">View →</span>
+                    </div>
+                  </RelatedCard>
+                ))}
+              </RelatedRow>
+            </ReviewsSection>
+          </>
+        )}
       </Modal>
     </Overlay>
   );

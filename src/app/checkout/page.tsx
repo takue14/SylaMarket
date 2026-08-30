@@ -34,20 +34,23 @@ export default function Checkout() {
 
     setLoading(true);
 
-    const customerId = localStorage.getItem('customerId');
+    
+
+            const methodMap: Record<string, 'cod' | 'ecocash' | 'paynow'> = {
+      'Cash on Delivery': 'cod',
+      'Ecocash': 'ecocash',
+      'Bank': 'paynow',
+    };
 
     const orderData = {
-      customerId,
       customerName: customerName.trim(),
       contact: contact.trim(),
       location: location.trim(),
-      paymentMethod: selectedPayment,
+      paymentMethod: methodMap[selectedPayment] || 'cod',
       products: cart.map((item) => ({
-        productName: item.productName,
+        productId: item._id,
         quantity: item.quantity,
-        price: item.price,
       })),
-      totalAmount,
     };
 
     try {
@@ -56,14 +59,41 @@ export default function Checkout() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
       });
+      const order = await res.json();
 
-      if (res.ok) {
-        alert('✅ Order placed successfully!');
+      if (!res.ok) {
+        alert(order.message || 'Failed to place order');
+        return;
+      }
+
+      if (order.paymentMethod === 'cod') {
+        alert('✅ Order placed! Pay the driver on delivery.');
         clearCart();
         router.push('/customer/dashboard');
-      } else {
-        alert('Failed to place order');
+        return;
       }
+
+      // Online payment — initiate with Paynow
+      const initRes = await fetch('/api/payments/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order._id, phone: order.paymentMethod === 'ecocash' ? contact.trim() : undefined }),
+      });
+      const initData = await initRes.json();
+
+      if (!initRes.ok) {
+        alert(initData.message || 'Payment could not be started.');
+        return;
+      }
+
+      clearCart();
+      if (initData.redirectUrl) {
+        window.location.href = initData.redirectUrl; // card/bank — send to Paynow's page
+      } else {
+        alert(initData.instructions || 'Check your phone to approve the payment.');
+        router.push('/customer/dashboard');
+      }
+      
     } catch (err) {
       console.error(err);
       alert('Network error.');
@@ -79,17 +109,14 @@ export default function Checkout() {
       return;
     }
 
-    setLoading(true);
-    const customerId = localStorage.getItem('customerId');
+       setLoading(true);
 
     const orderData = {
-      customerId,
       customerName: customerName.trim(),
       contact: contact.trim(),
       location: location.trim(),
       paymentMethod: selectedPayment,
-      products: [{ productName: item.productName, quantity: item.quantity, price: item.price }],
-      totalAmount: item.price * item.quantity,
+      products: [{ productId: item._id, quantity: item.quantity }],
     };
 
     try {
@@ -235,13 +262,13 @@ export default function Checkout() {
                   </div>
 
                 </div>
-                <button
+                {/*<button
                       className="buy-now-btn"
                       onClick={() => handleBuyNow(item)}
                       disabled={loading}
                     >
                       Buy Now
-                    </button>
+                    </button>*/}
                     </>
               ))}
               
@@ -310,13 +337,13 @@ export default function Checkout() {
                   </div>
 
                   {/* Buy Now on PC */}
-                  <button
+                  {/*<button
                     className="buy-now-pc"
                     onClick={() => handleBuyNow(item)}
                     disabled={loading}
                   >
                     Buy Now
-                  </button>
+                  </button>*/}
                 </div>
               ))}
             </div>

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
 import Link from 'next/link';
+import LocationSettings from '@/components/LocationSettings';
 
 interface Product {
   _id: string;
@@ -24,234 +25,302 @@ interface Order {
 
 // ================== STYLES ==================
 
-const StyledWrapper = styled.div`
-  button {
-    display: flex;
-    align-items: center;
-    font-family: inherit;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 17px;
-    padding: 0.8em 1.3em 0.8em 0.9em;
-    color: white;
-    background: linear-gradient(to right, #0f0c29, #302b63, #24243e);
-    border: none;
-    letter-spacing: 0.05em;
-    border-radius: 16px;
-  }
+const Page = styled.div`
+  --bg: var(--bg-base);
+  --card-bg: var(--bg-card);
+  --ink: var(--text-primary);
+  --muted: var(--text-muted);
+  /* Balance card stays a fixed dark gradient in both themes — like a
+     bank card's face, it's a deliberate accent surface, not a page
+     background that should flip with light/dark mode. */
+  --dark: #17181c;
+  --dark-2: #232429;
+  --red: #e0364f;
+  --red-dark: #c22a41;
+  --slate: #3c4550;
+  --slate-2: #4d5866;
+  --radius-lg: 28px;
+  --radius-md: 20px;
+  --radius-sm: 14px;
 
-  button svg {
-    margin-right: 3px;
-    transform: rotate(30deg);
-    transition: transform 0.5s cubic-bezier(0.76, 0, 0.24, 1);
-  }
-
-  button span {
-    transition: transform 0.5s cubic-bezier(0.76, 0, 0.24, 1);
-  }
-
-  button:hover svg {
-    transform: translateX(5px) rotate(90deg);
-  }
-
-  button:hover span {
-    transform: translateX(7px);
-  }
-`;
-
-const DashboardContainer = styled.div`
   width: 100%;
   min-height: 100vh;
-  background: var(--bg-base);
-  color: var(--text-primary);
-  padding: 30px;
-
-  @media (max-width: 768px) {
-    padding: 18px;
-  }
-`;
-
-const DesktopView = styled.div`
-  display: block;
-
-  @media (max-width: 768px) {
-    display: none;
-  }
-`;
-
-const MobileView = styled.div`
-  display: none;
-
-  @media (max-width: 768px) {
-    display: block;
-  }
-`;
-
-const Header = styled.div`
+  background: var(--bg);
+  color: var(--ink);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 `;
 
-const Title = styled.h1`
-  color: var(--text-primary);
-  margin: 0;
-`;
-
-const TabContainer = styled.div`
-  display: flex;
-  gap: 10px;
-  margin-bottom: 30px;
-  border-bottom: 2px solid #1f1f25;
-`;
-
-const Tab = styled.button<{ active: boolean }>`
-  padding: 12px 24px;
-  font-size: 1rem;
-  font-weight: 600;
-  background: ${props => (props.active ? '#5b6cff' : '#18181b')};
-  color: white;
-  border: none;
-  border-radius: 8px 8px 0 0;
-  cursor: pointer;
-  transition: all 0.3s;
-
-  &:hover {
-    background: ${props => (props.active ? '#5b6cff' : '#23232b')};
-  }
-`;
-
-const DashboardCard = styled.div`
+const AppShell = styled.div`
   width: 100%;
-  min-height: 150px;
-  background: linear-gradient(145deg, #1b1b22, #111116);
-  border-radius: 22px;
-  padding: 20px;
-  color: white;
+  max-width: 480px;
+  min-height: 100vh;
+  padding: 28px 20px 60px;
   position: relative;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.03),
-    0 10px 25px rgba(0,0,0,0.4);
-  transition: transform 0.3s ease;
-
-  &:hover {
-    transform: translateY(-4px);
-  }
-
-  .top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #5b6cff;
-    font-size: 15px;
-    font-weight: 600;
-  }
-
-  .time {
-    color: #7b7b86;
-    font-size: 15px;
-  }
-
-  .sub-text {
-    margin-top: 26px;
-    color: #9b9ba3;
-    font-size: 15px;
-  }
-
-  .number {
-    margin-top: 10px;
-    font-size: 42px;
-    font-weight: 500;
-    letter-spacing: -2px;
-    color: #f5f5f5;
-    padding-bottom: 10px;
-    word-break: break-word;
-  }
-
-  .small-body {
-    margin-top: 12px;
-    color: #c5c5ce;
-    line-height: 1.6;
-    font-size: 14px;
-  }
-
-  .action-btn {
-    margin-top: 12px;
-    background: #5b6cff;
-    border: none;
-    color: white;
-    padding: 8px 14px;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  .danger-btn {
-    background: #ef4444;
-  }
-
-  .success-btn {
-    background: #10b981;
-  }
+  box-sizing: border-box;
 `;
 
-const MobileTabs = styled.div`
-  width: 100%;
-  background: #151515;
-  border-radius: 40px;
-  padding: 6px;
+const SectionTitle = styled.h2`
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 14px 2px;
+`;
+
+/* ===== Balance carousel ===== */
+
+const BalanceCarousel = styled.div`
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 40px -18px rgba(15, 16, 20, 0.55);
+`;
+
+const BalanceTrack = styled.div<{ $dragging: boolean }>`
   display: flex;
-  gap: 8px;
-  margin-bottom: 25px;
-  position: sticky;
-  top: 10px;
-  z-index: 20;
+  width: 200%;
+  transition: ${p => (p.$dragging ? 'none' : 'transform .38s cubic-bezier(.22,.68,0,1)')};
+  touch-action: pan-y;
+  cursor: ${p => (p.$dragging ? 'grabbing' : 'grab')};
 `;
 
-const MobileTab = styled.button<{ active: boolean }>`
-  flex: 1;
-  border: none;
-  background: ${props => props.active ? '#ededed' : 'transparent'};
-  color: ${props => props.active ? '#111' : '#cfcfcf'};
-  font-size: 17px;
-  font-weight: 600;
-  padding: 14px 10px;
-  border-radius: 30px;
-  cursor: pointer;
-`;
-
-const AnalyticsGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-bottom: 28px;
-`;
-
-const MobileAnalyticsCard = styled.div<{ bg: string; dark?: boolean }>`
-  min-height: 120px;
-  border-radius: 24px;
-  padding: 18px;
+const BalanceCard = styled.div`
+  flex: 0 0 50%;
+  width: 50%;
+  box-sizing: border-box;
+  background: linear-gradient(160deg, var(--dark-2), var(--dark) 60%);
+    padding: 18px 22px;
+  color: #fff;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  background: ${props => props.bg};
-  color: ${props => props.dark ? 'white' : '#111'};
+  gap: 14px;
+  user-select: none;
 `;
 
+const BalanceTop = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const BalanceInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+const BalanceIcon = styled.div`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  background: rgba(255, 255, 255, 0.06);
+`;
+
+const BalanceLabel = styled.span`
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.01em;
+`;
+
+const BalanceBadge = styled.div`
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const BalanceAmount = styled.p`
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  line-height: 1.1;
+`;
+
+const BalanceNote = styled.p`
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+  margin: 0;
+  max-width: 90%;
+`;
+
+const Cents = styled.span`
+  font-size: 20px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+`;
+
+const ChipRow = styled.div`
+  display: flex;
+  gap: 10px;
+`;
+
+const ChipGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+`;
+
+const Chip = styled.div<{ $variant: 'red' | 'slate' | 'blue' | 'green'; $compact?: boolean }>`
+  flex: 1;
+  border-radius: 16px;
+  padding: ${p => (p.$compact ? '12px 14px' : '14px')};
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: ${p => (p.$compact ? '4px' : '10px')};
+  height: ${p => (p.$compact ? '68px' : '88px')};
+  box-sizing: border-box;
+  cursor: default;
+  background: ${p =>
+    p.$variant === 'red'
+      ? 'linear-gradient(150deg, var(--red), var(--red-dark))'
+      : p.$variant === 'slate'
+      ? 'linear-gradient(150deg, var(--slate-2), var(--slate))'
+      : p.$variant === 'blue'
+      ? 'linear-gradient(150deg, #4f7cff, #3b5fd9)'
+      : 'linear-gradient(150deg, #3fbf7f, #2e9c66)'};
+`;
+
+const ChipIcon = styled.span`
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+`;
+
+const ChipValue = styled.span`
+  font-weight: 700;
+  font-size: 20px;
+  color: #fff;
+`;
+
+const ChipCaption = styled.span`
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+`;
+
+const ChipWhite = styled.div`
+  flex: 0 0 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--bg-card);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-sizing: border-box;
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.4);
+`;
+
+const ChipWhiteValue = styled.span`
+  font-size: 20px;
+  font-weight: 700;
+`;
+
+const ChipWhiteCaption = styled.span`
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+`;
+
+const ActionRow = styled.div`
+  display: flex;
+  gap: 12px;
+`;
+
+const ActionBtn = styled.button`
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 16px 10px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -12px rgba(20, 21, 26, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-decoration: none;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px -12px rgba(20, 21, 26, 0.32);
+  }
+  &:active {
+    transform: translateY(0) scale(0.98);
+  }
+`;
+
+const CircleIcon = styled.span`
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+`;
+
+/* ===== Dots ===== */
+
+const Dots = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 14px 0 22px;
+`;
+
+const Dot = styled.span<{ $active: boolean }>`
+  width: ${p => (p.$active ? '16px' : '6px')};
+  height: 6px;
+  border-radius: ${p => (p.$active ? '4px' : '50%')};
+  background: ${p => (p.$active ? 'var(--ink)' : '#cfd2da')};
+  cursor: pointer;
+  transition: background 0.2s ease, width 0.2s ease;
+`;
+
+/* ===== Overview box (unchanged apart from removed upload button) ===== */
+
 const OverviewBox = styled.div`
-  background-color: var(--bg-base);
-  border-radius: 24px;
+  background-color: var(--card-bg);
+  border-radius: var(--radius-lg);
   padding: 20px;
-  margin-bottom: 25px;
-  color: var(--text-primary);
+  margin-bottom: 20px;
+  color: var(--ink);
+  box-shadow: 0 10px 30px -18px rgba(20, 21, 26, 0.15);
 `;
 
 const OverviewItem = styled.div`
@@ -259,18 +328,33 @@ const OverviewItem = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 18px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
 `;
+
+/* ===== Operations card (now hosts the product listing) ===== */
+
+const OpsCard = styled.div`
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 22px 20px 8px;
+  box-shadow: 0 10px 30px -18px rgba(20, 21, 26, 0.15);
+`;
+
+/* ===== Product list styled-components — kept exactly as in the original file ===== */
 
 const ProductList = styled.div`
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding-bottom: 100px;
-  color: var(--text-primary);
+  padding-bottom: 24px;
+  color: var(--text-primary, var(--ink));
 `;
 
 const MobileProductCard = styled.div`
-  background: var(--bg-base);
+  background: var(--bg-base, #f6f6f8);
   border-radius: 24px;
   padding: 16px;
   display: flex;
@@ -289,19 +373,64 @@ const ProductImage = styled.img`
 // ================== COMPONENT ==================
 
 export default function SellerDashboard() {
-
-  const [activeTab, setActiveTab] =
-    useState<'overview' | 'sales' | 'inventory'>('overview');
-
-  const [mobileTab, setMobileTab] =
-    useState<'products' | 'analysis'>('products');
+  // 0 = "Products" slide, 1 = "Analysis" slide — replaces the old mobileTab tab switcher
+  const [activeSlide, setActiveSlide] = useState<0 | 1>(0);
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [sellerId, setSellerId] = useState<string | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [restockAmounts, setRestockAmounts] =
-    useState<Record<string, number>>({});
+  const [restockAmounts, setRestockAmounts] = useState<Record<string, number>>({});
 
   const router = useRouter();
+
+  // ----- carousel drag state -----
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragDeltaPercent, setDragDeltaPercent] = useState(0);
+  const dragStartX = useRef(0);
+  const dragCurrentX = useRef(0);
+
+  const slideCount = 2;
+
+  const goToSlide = (index: number) => {
+    const clamped = Math.max(0, Math.min(slideCount - 1, index)) as 0 | 1;
+    setActiveSlide(clamped);
+    setDragDeltaPercent(0);
+  };
+
+  const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    dragStartX.current = e.clientX;
+    dragCurrentX.current = e.clientX;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+
+  const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isDragging || !carouselRef.current) return;
+    dragCurrentX.current = e.clientX;
+    const width = carouselRef.current.getBoundingClientRect().width;
+    const delta = dragCurrentX.current - dragStartX.current;
+    setDragDeltaPercent((delta / width) * 50);
+  };
+
+  const handlePointerUp = () => {
+    if (!isDragging || !carouselRef.current) return;
+    setIsDragging(false);
+
+    const width = carouselRef.current.getBoundingClientRect().width;
+    const delta = dragCurrentX.current - dragStartX.current;
+    const threshold = width * 0.18;
+
+    if (delta < -threshold && activeSlide < slideCount - 1) {
+      goToSlide(activeSlide + 1);
+    } else if (delta > threshold && activeSlide > 0) {
+      goToSlide(activeSlide - 1);
+    } else {
+      goToSlide(activeSlide);
+    }
+  };
+
+  const trackTransform = `translateX(${-activeSlide * 50 + dragDeltaPercent}%)`;
 
   const fetchSellerData = async () => {
     const sellerId = localStorage.getItem('sellerId');
@@ -317,7 +446,7 @@ export default function SellerDashboard() {
       setProducts(data);
     }
 
-    const orderRes = await fetch('/api/orders');
+    const orderRes = await fetch('/api/orders?as=seller');
     if (orderRes.ok) {
       const data = await orderRes.json();
       setOrders(data);
@@ -325,14 +454,14 @@ export default function SellerDashboard() {
   };
 
   useEffect(() => {
+    const id = localStorage.getItem('sellerId');
+    setSellerId(id);
+
     fetchSellerData();
   }, []);
 
   // ── Guard added: rejects negative quantities ──
-  const updateQuantity = async (
-    productId: string,
-    newQuantity: number
-  ) => {
+  const updateQuantity = async (productId: string, newQuantity: number) => {
     if (newQuantity < 0) return;
 
     const res = await fetch(`/api/products/${productId}`, {
@@ -384,456 +513,307 @@ export default function SellerDashboard() {
   const listedProducts = products.filter(p => p.quantity > 0);
   const soldOutProducts = products.filter(p => p.quantity === 0);
 
-  const totalListedValue = listedProducts.reduce(
-    (sum, p) => sum + p.price * p.quantity, 0
-  );
+  const totalListedValue = listedProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
 
   const deliveredOrders = orders.filter(o => o.status === 'delivered');
 
-  const overallRevenue = deliveredOrders.reduce(
-    (sum, o) => sum + o.totalAmount, 0
-  );
+  const overallRevenue = deliveredOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+
+  const splitMoney = (value: number) => {
+    const fixed = value.toFixed(2);
+    const [whole, cents] = fixed.split('.');
+    return { whole: Number(whole).toLocaleString('en-US'), cents };
+  };
+
+  const revenueSplit = splitMoney(overallRevenue);
 
   return (
-    <DashboardContainer>
+    <Page>
+      <AppShell>
+        <SectionTitle>Seller Dashboard</SectionTitle>
 
-      {/* ================== MOBILE VIEW ================== */}
+        {/* ================== BALANCE CARD CAROUSEL ================== */}
+        <BalanceCarousel
+          ref={carouselRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        >
+          <BalanceTrack $dragging={isDragging} style={{ transform: trackTransform }}>
+            {/* ---- Slide 1: Products (was mobileTab "products") ---- */}
+            <BalanceCard>
+              <BalanceTop>
+                <BalanceIcon>$</BalanceIcon>
+                <BalanceBadge>products</BalanceBadge>
+              </BalanceTop>
 
-      <MobileView>
+              <BalanceInfo>
+                <BalanceLabel>Total revenue</BalanceLabel>
+                <BalanceAmount>
+                  {revenueSplit.whole}
+                  <Cents>.{revenueSplit.cents}</Cents>
+                </BalanceAmount>
+              </BalanceInfo>
 
-        <MobileTabs>
-          <MobileTab
-            active={mobileTab === 'products'}
-            onClick={() => setMobileTab('products')}
-          >
-            Product
-          </MobileTab>
+              <ChipRow>
+                                <Chip $variant="red" $compact>
+                  <ChipValue>{products.length}</ChipValue>
+                  <ChipCaption>Total products</ChipCaption>
+                </Chip>
 
-          <MobileTab
-            active={mobileTab === 'analysis'}
-            onClick={() => setMobileTab('analysis')}
-          >
-            Analysis
-          </MobileTab>
-        </MobileTabs>
+                <Chip $variant="slate" $compact>
+                  <ChipValue>{listedProducts.length}</ChipValue>
+                  <ChipCaption>Listed</ChipCaption>
+                </Chip>
 
-        {mobileTab === 'products' && (
-          <>
-            <h2 style={{ fontSize: '24px', marginBottom: '18px' }}>
-              Sales Analysis
-            </h2>
+                <ChipWhite>
+                  <ChipWhiteValue>{soldOutProducts.length}</ChipWhiteValue>
+                  <ChipWhiteCaption>Sold out</ChipWhiteCaption>
+                </ChipWhite>
+              </ChipRow>
 
-            <AnalyticsGrid>
-              <MobileAnalyticsCard bg="#dcc6f5">
-                <div>
-                  <div>Total Products</div>
-                  <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '12px' }}>
-                    {products.length}
-                  </div>
-                </div>
-              </MobileAnalyticsCard>
-
-              <MobileAnalyticsCard bg="#f1e56c">
-                <div>
-                  <div>Revenue</div>
-                  <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '12px' }}>
-                    ${overallRevenue.toLocaleString()}
-                  </div>
-                </div>
-              </MobileAnalyticsCard>
-
-              <MobileAnalyticsCard bg="#efc1b9">
-                <div>
-                  <div>Listed Products</div>
-                  <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '12px' }}>
-                    {listedProducts.length}
-                  </div>
-                </div>
-              </MobileAnalyticsCard>
-
-              <MobileAnalyticsCard bg="#1b1b1b" dark>
-                <div>
-                  <div>Sold Out</div>
-                  <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '12px' }}>
-                    {soldOutProducts.length}
-                  </div>
-                </div>
-              </MobileAnalyticsCard>
-            </AnalyticsGrid>
-
-            <OverviewBox>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px',color: 'var(--text-primary)',backgroundColor:'var(--bg-base)' }}>
-                <h3 style={{ color: 'var(--text-primary)'}}>Product Overview</h3>
-                <Link href="/seller/upload" style={{ textDecoration: 'none' }}>
-                  <span style={{ color: 'var(--text-primary)'}}>Upload Products</span>
+              <ActionRow>
+                <Link href="/seller/upload" passHref legacyBehavior>
+                  <ActionBtn as="a">
+                    <CircleIcon>+</CircleIcon> Upload products
+                  </ActionBtn>
                 </Link>
-              </div>
+              </ActionRow>
+            </BalanceCard>
 
-              <div>
-                <OverviewItem>
-                  <span>Total Inventory Value</span>
-                  <strong>${totalListedValue.toFixed(2)}</strong>
-                </OverviewItem>
+            {/* ---- Slide 2: Analysis (was mobileTab "analysis") ---- */}
+            <BalanceCard>
+              <BalanceTop>
+                <BalanceIcon>$</BalanceIcon>
+                <BalanceBadge>sales Analysis</BalanceBadge>
+              </BalanceTop>
 
-                <OverviewItem>
-                  <span>Total Revenue</span>
-                  <strong>${overallRevenue.toFixed(2)}</strong>
-                </OverviewItem>
+              <BalanceInfo>
+                <BalanceLabel>Sales analytics</BalanceLabel>
+                <BalanceNote>Order volume, delivery and inventory value at a glance.</BalanceNote>
+              </BalanceInfo>
 
-                <OverviewItem>
-                  <span>Active Products</span>
-                  <strong>{listedProducts.length}</strong>
-                </OverviewItem>
-              </div>
-            </OverviewBox>
+              <ChipGrid>
+                                <Chip $variant="red">
+                  <ChipIcon>💰</ChipIcon>
+                  <div>
+                    <ChipValue>${totalListedValue.toFixed(0)}</ChipValue>
+                    <br />
+                    <ChipCaption>Total value</ChipCaption>
+                  </div>
+                </Chip>
 
-            <h2 style={{ marginBottom: '20px' }}>Products</h2>
+                <Chip $variant="blue">
+                  <ChipIcon></ChipIcon>
+                  <div>
+                    <ChipValue>{orders.length}</ChipValue>
+                    <br />
+                    <ChipCaption>Orders</ChipCaption>
+                  </div>
+                </Chip>
 
-            <ProductList style={{ color: 'var(--text-primary)'}}>
-              {listedProducts.map(product => (
-                <MobileProductCard key={product._id} style={{ color: 'var(--text-primary)'}}>
-                  <ProductImage
-                    src={product.imageLink || '/placeholder.png'}
-                    alt={product.productName}
-                  />
+                <Chip $variant="green">
+                  <ChipIcon></ChipIcon>
+                  <div>
+                    <ChipValue>${overallRevenue.toFixed(0)}</ChipValue>
+                    <br />
+                    <ChipCaption>Revenue</ChipCaption>
+                  </div>
+                </Chip>
 
-                  <div style={{ flex: 1 }}>
-                    <h4 style={{ marginBottom: '6px' }}>
-                      {product.productName}
-                    </h4>
+                <Chip $variant="slate">
+                  <ChipIcon></ChipIcon>
+                  <div>
+                    <ChipValue>{deliveredOrders.length}</ChipValue>
+                    <br />
+                    <ChipCaption>Delivered</ChipCaption>
+                  </div>
+                </Chip>
 
-                    <p style={{ color: '#999', fontSize: '13px', marginBottom: '8px' }}>
-                      {product.category}
-                    </p>
+              </ChipGrid>
+            </BalanceCard>
+          </BalanceTrack>
+        </BalanceCarousel>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <strong>${product.price}</strong>
+        {/* ================== DOTS ================== */}
+        <Dots>
+          {Array.from({ length: slideCount }).map((_, i) => (
+            <Dot key={i} $active={activeSlide === i} onClick={() => goToSlide(i)} />
+          ))}
+        </Dots>
 
-                      {/* ── Quantity counter (added back) ── */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button
-                          onClick={() => updateQuantity(product._id, product.quantity - 1)}
-                          style={{ background: '#222', border: 'none', color: 'white', padding: '4px 10px', borderRadius: '8px', cursor: 'pointer' }}
-                        >
-                          -
-                        </button>
+        {/* ================== PRODUCT OVERVIEW (upload button removed — it now lives in the balance card) ================== */}
+        <OverviewBox>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <h3 style={{ margin: 0 }}>Product Overview</h3>
+          </div>
 
-                        <input
-                          type="number"
-                          value={product.quantity}
-                          onChange={(e) =>
-                            updateQuantity(product._id, parseInt(e.target.value) || 0)
-                          }
-                          style={{ width: '60px', textAlign: 'center', padding: '4px', borderRadius: '6px', background: '#1a1a1a', color: 'white', border: '1px solid #333' }}
-                        />
+          <div>
+            <OverviewItem>
+              <span>Total Inventory Value</span>
+              <strong>${totalListedValue.toFixed(2)}</strong>
+            </OverviewItem>
 
-                        <button
-                          onClick={() => updateQuantity(product._id, product.quantity + 1)}
-                          style={{ background: '#222', border: 'none', color: 'white', padding: '4px 10px', borderRadius: '8px', cursor: 'pointer' }}
-                        >
-                          +
-                        </button>
-                      </div>
+            <OverviewItem>
+              <span>Total Revenue</span>
+              <strong>${overallRevenue.toFixed(2)}</strong>
+            </OverviewItem>
 
+            <OverviewItem>
+              <span>Active Products</span>
+              <strong>{listedProducts.length}</strong>
+            </OverviewItem>
+          </div>
+        </OverviewBox>
+
+        {/* ================== LOCATION SETTINGS (preserved from the original — was broken/unreachable JSX before) ================== */}
+        {sellerId && (
+          <div style={{ marginBottom: 20 }}>
+            <LocationSettings role="seller" userId={sellerId} />
+          </div>
+        )}
+
+        {/* ================== OPERATIONS CARD — now hosts the product listing, unchanged from the original ================== */}
+        <OpsCard>
+          <h2 style={{ marginBottom: '20px' }}>Products</h2>
+
+          <ProductList>
+            {listedProducts.map(product => (
+              <MobileProductCard key={product._id}>
+                <ProductImage src={product.imageLink || '/placeholder.png'} alt={product.productName} />
+
+                <div style={{ flex: 1 }}>
+                  <h4 style={{ marginBottom: '6px' }}>{product.productName}</h4>
+
+                  <p style={{ color: '#999', fontSize: '13px', marginBottom: '8px' }}>{product.category}</p>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{paddingRight: '10px'}}>${product.price}</strong>
+
+                    {/* ── Quantity counter (added back) ── */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <button
-                        onClick={() => deleteProduct(product._id)}
+                        onClick={() => updateQuantity(product._id, product.quantity - 1)}
                         style={{
-                          background: '#ef4444',
+                          background: '#222',
                           border: 'none',
                           color: 'white',
-                          padding: '6px 12px',
-                          borderRadius: '20px',
-                          fontSize: '12px',
+                          padding: '4px 10px',
+                          borderRadius: '8px',
                           cursor: 'pointer',
                         }}
                       >
-                        Delete
+                        -
                       </button>
-                    </div>
-                  </div>
-                </MobileProductCard>
-              ))}
-            </ProductList>
 
-            {/* ── Mobile Sold Out section (added back) ── */}
-            {soldOutProducts.length > 0 && (
-              <>
-                <h2 style={{ marginTop: '40px', color: '#ef4444' }}>
-                  Sold Out Products
-                </h2>
-
-                <ProductList>
-                  {soldOutProducts.map(product => (
-                    <MobileProductCard key={product._id}>
-                      <ProductImage
-                        src={product.imageLink || '/placeholder.png'}
-                        alt={product.productName}
-                      />
-
-                      <div style={{ flex: 1 }}>
-                        <h4>{product.productName}</h4>
-                        <p style={{ color: '#999', fontSize: '13px' }}>
-                          {product.category}
-                        </p>
-
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                          <input
-                            type="number"
-                            value={restockAmounts[product._id] || 10}
-                            onChange={(e) =>
-                              setRestockAmounts(prev => ({
-                                ...prev,
-                                [product._id]: parseInt(e.target.value) || 10,
-                              }))
-                            }
-                            style={{ width: '70px', padding: '6px', borderRadius: '6px', background: '#1a1a1a', color: 'white', border: '1px solid #333' }}
-                          />
-
-                          <button
-                            onClick={() => handleRestock(product._id)}
-                            style={{
-                              background: '#10b981',
-                              color: 'white',
-                              border: 'none',
-                              padding: '8px 16px',
-                              borderRadius: '20px',
-                              fontSize: '13px',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Restock
-                          </button>
-                        </div>
-                      </div>
-                    </MobileProductCard>
-                  ))}
-                </ProductList>
-              </>
-            )}
-          </>
-        )}
-
-        {mobileTab === 'analysis' && (
-          <AnalyticsGrid>
-            <MobileAnalyticsCard bg="#dcc6f5">
-              <div>
-                <div>Total Value</div>
-                <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '12px' }}>
-                  ${totalListedValue.toFixed(0)}
-                </div>
-              </div>
-            </MobileAnalyticsCard>
-
-            <MobileAnalyticsCard bg="#f1e56c">
-              <div>
-                <div>Orders</div>
-                <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '12px' }}>
-                  {orders.length}
-                </div>
-              </div>
-            </MobileAnalyticsCard>
-
-            <MobileAnalyticsCard bg="#efc1b9">
-              <div>
-                <div>Revenue</div>
-                <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '12px' }}>
-                  ${overallRevenue.toFixed(0)}
-                </div>
-              </div>
-            </MobileAnalyticsCard>
-
-            <MobileAnalyticsCard bg="#1b1b1b" dark>
-              <div>
-                <div>Delivered</div>
-                <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '12px' }}>
-                  {deliveredOrders.length}
-                </div>
-              </div>
-            </MobileAnalyticsCard>
-          </AnalyticsGrid>
-        )}
-
-      </MobileView>
-
-      {/* ================== DESKTOP VIEW ================== */}
-
-      <DesktopView>
-
-        <Header>
-          <Title>Seller Dashboard</Title>
-        </Header>
-
-        <TabContainer>
-          <Tab active={activeTab === 'overview'} onClick={() => setActiveTab('overview')}>
-            Overview
-          </Tab>
-          <Tab active={activeTab === 'sales'} onClick={() => setActiveTab('sales')}>
-            Sales Analytics
-          </Tab>
-          <Tab active={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')}>
-            Inventory Management
-          </Tab>
-        </TabContainer>
-
-        {/* ── Overview Tab ── */}
-        {activeTab === 'overview' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-            <DashboardCard>
-              <div className="top">
-                <div className="title"><span>Total Products</span></div>
-                <div className="time">Now</div>
-              </div>
-              <div className="sub-text">Current inventory</div>
-              <div className="number">{products.length}</div>
-            </DashboardCard>
-
-            <DashboardCard>
-              <div className="top">
-                <div className="title"><span>Listed Value</span></div>
-                <div className="time">Live</div>
-              </div>
-              <div className="sub-text">Inventory worth</div>
-              <div className="number">${totalListedValue.toFixed(2)}</div>
-            </DashboardCard>
-
-            <DashboardCard>
-              <div className="top">
-                <div className="title"><span>Sold Out</span></div>
-                <div className="time">Stock</div>
-              </div>
-              <div className="sub-text">Products unavailable</div>
-              <div className="number">{soldOutProducts.length}</div>
-            </DashboardCard>
-          </div>
-        )}
-
-        {/* ── Sales Analytics Tab (added back) ── */}
-        {activeTab === 'sales' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-            <DashboardCard>
-              <div className="top">
-                <div className="title"><span>Overall Revenue</span></div>
-                <div className="time">All time</div>
-              </div>
-              <div className="sub-text">From delivered orders</div>
-              <div className="number">${overallRevenue.toFixed(2)}</div>
-            </DashboardCard>
-
-            <DashboardCard>
-              <div className="top">
-                <div className="title"><span>Total Orders</span></div>
-                <div className="time">All</div>
-              </div>
-              <div className="sub-text">Orders received</div>
-              <div className="number">{orders.length}</div>
-            </DashboardCard>
-
-            <DashboardCard>
-              <div className="top">
-                <div className="title"><span>Delivered Orders</span></div>
-                <div className="time">Completed</div>
-              </div>
-              <div className="sub-text">Successfully fulfilled</div>
-              <div className="number">{deliveredOrders.length}</div>
-            </DashboardCard>
-          </div>
-        )}
-
-        {/* ── Inventory Management Tab (added back) ── */}
-        {activeTab === 'inventory' && (
-          <>
-            <h2 style={{ marginBottom: '20px' }}>Listed Products</h2>
-
-            <table style={{ width: '100%', borderCollapse: 'collapse', background: '#111116', borderRadius: '12px', overflow: 'hidden' }}>
-              <thead>
-                <tr style={{ background: '#1b1b22' }}>
-                  <th style={{ padding: '15px', textAlign: 'left' }}>Product</th>
-                  <th style={{ padding: '15px', textAlign: 'left' }}>Price</th>
-                  <th style={{ padding: '15px', textAlign: 'left' }}>Quantity</th>
-                  <th style={{ padding: '15px', textAlign: 'center' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {listedProducts.map(product => (
-                  <tr key={product._id} style={{ borderBottom: '1px solid #222' }}>
-                    <td style={{ padding: '15px' }}>{product.productName}</td>
-                    <td style={{ padding: '15px' }}>${product.price}</td>
-                    <td style={{ padding: '15px' }}>
                       <input
                         type="number"
                         value={product.quantity}
-                        onChange={(e) =>
-                          updateQuantity(product._id, parseInt(e.target.value) || 0)
-                        }
-                        style={{ width: '80px', padding: '6px', borderRadius: '6px', background: '#1a1a1a', color: 'white', border: '1px solid #333' }}
+                        onChange={e => updateQuantity(product._id, parseInt(e.target.value) || 0)}
+                        style={{
+                          width: '60px',
+                          textAlign: 'center',
+                          padding: '4px',
+                          borderRadius: '6px',
+                          background: '#1a1a1a',
+                          color: 'white',
+                          border: '1px solid #333',
+                        }}
                       />
-                    </td>
-                    <td style={{ padding: '15px', textAlign: 'center' }}>
+
                       <button
-                        onClick={() => deleteProduct(product._id)}
-                        style={{ background: '#ef4444', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
+                        onClick={() => updateQuantity(product._id, product.quantity + 1)}
+                        style={{
+                          background: '#222',
+                          border: 'none',
+                          color: 'white',
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                        }}
                       >
-                        Delete
+                        +
                       </button>
-                    </td>
-                  </tr>
+                    </div>
+
+                    <button
+                      onClick={() => deleteProduct(product._id)}
+                      style={{
+                        background: '#ef4444',
+                        border: 'none',
+                        color: 'white',
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </MobileProductCard>
+            ))}
+          </ProductList>
+
+          {/* ── Sold Out section (added back) ── */}
+          {soldOutProducts.length > 0 && (
+            <>
+              <h2 style={{ marginTop: '40px', color: '#ef4444' }}>Sold Out Products</h2>
+
+              <ProductList>
+                {soldOutProducts.map(product => (
+                  <MobileProductCard key={product._id}>
+                    <ProductImage src={product.imageLink || '/placeholder.png'} alt={product.productName} />
+
+                    <div style={{ flex: 1 }}>
+                      <h4>{product.productName}</h4>
+                      <p style={{ color: '#999', fontSize: '13px' }}>{product.category}</p>
+
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                        <input
+                          type="number"
+                          value={restockAmounts[product._id] || 10}
+                          onChange={e =>
+                            setRestockAmounts(prev => ({
+                              ...prev,
+                              [product._id]: parseInt(e.target.value) || 10,
+                            }))
+                          }
+                          style={{
+                            width: '70px',
+                            padding: '6px',
+                            borderRadius: '6px',
+                            background: '#1a1a1a',
+                            color: 'white',
+                            border: '1px solid #333',
+                          }}
+                        />
+
+                        <button
+                          onClick={() => handleRestock(product._id)}
+                          style={{
+                            background: '#10b981',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '20px',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Restock
+                        </button>
+                      </div>
+                    </div>
+                  </MobileProductCard>
                 ))}
-              </tbody>
-            </table>
-
-            {/* ── Desktop Sold Out section (added back) ── */}
-            {soldOutProducts.length > 0 && (
-              <>
-                <h2 style={{ marginTop: '50px', color: '#ef4444' }}>
-                  Sold Out Products
-                </h2>
-
-                <table style={{ width: '100%', borderCollapse: 'collapse', background: '#111116', borderRadius: '12px', overflow: 'hidden' }}>
-                  <thead>
-                    <tr style={{ background: '#1b1b22' }}>
-                      <th style={{ padding: '15px', textAlign: 'left' }}>Product</th>
-                      <th style={{ padding: '15px', textAlign: 'left' }}>Price</th>
-                      <th style={{ padding: '15px', textAlign: 'left' }}>Restock Qty</th>
-                      <th style={{ padding: '15px', textAlign: 'center' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {soldOutProducts.map(product => (
-                      <tr key={product._id} style={{ borderBottom: '1px solid #222' }}>
-                        <td style={{ padding: '15px' }}>{product.productName}</td>
-                        <td style={{ padding: '15px' }}>${product.price}</td>
-                        <td style={{ padding: '15px' }}>
-                          <input
-                            type="number"
-                            value={restockAmounts[product._id] || 10}
-                            onChange={(e) =>
-                              setRestockAmounts(prev => ({
-                                ...prev,
-                                [product._id]: parseInt(e.target.value) || 10,
-                              }))
-                            }
-                            style={{ width: '80px', padding: '6px', borderRadius: '6px', background: '#1a1a1a', color: 'white', border: '1px solid #333' }}
-                          />
-                        </td>
-                        <td style={{ padding: '15px', textAlign: 'center' }}>
-                          <button
-                            onClick={() => handleRestock(product._id)}
-                            style={{ background: '#10b981', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
-                          >
-                            Restock
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            )}
-          </>
-        )}
-
-      </DesktopView>
-
-    </DashboardContainer>
+              </ProductList>
+            </>
+          )}
+        </OpsCard>
+      </AppShell>
+    </Page>
   );
 }

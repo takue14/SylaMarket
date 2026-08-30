@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { StyledForm } from '@/components/AuthFormStyled';
+import SellerLocationPrompt from '@/components/SellerLocationPrompt';
 
 export default function SellerRegister() {
   const [name, setName] = useState('');
@@ -11,6 +12,17 @@ export default function SellerRegister() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const router = useRouter();
+  const [locationReady, setLocationReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+  const sellerId = localStorage.getItem('sellerId');
+  if (!sellerId) return;
+  fetch(`/api/sellers/${sellerId}/products`) // any seller-scoped call works; we're really just confirming session, then checking location separately
+  fetch(`/api/sellers/${sellerId}/location-check`)
+    .then((res) => res.json())
+    .then((data) => setLocationReady(!!data.hasLocation))
+    .catch(() => setLocationReady(false));
+}, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();

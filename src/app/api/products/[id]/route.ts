@@ -2,10 +2,31 @@ import { NextResponse } from 'next/server';
 import { connectToDB } from '@/lib/mongoose';
 import Product from '@/models/Product';
 
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectToDB();
+    const { id } = await params;
+
+    const product = await Product.findById(id).populate('seller', 'businessName name contact');
+    if (!product) {
+      return NextResponse.json({ message: 'Product not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(product);
+  } catch (error) {
+    console.error('Get product error:', error);
+    return NextResponse.json({ message: 'Failed to fetch product' }, { status: 500 });
+  }
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // ...existing code, unchanged
   try {
     await connectToDB();
 

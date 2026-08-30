@@ -4,15 +4,20 @@ import pymongo
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import svds
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
+import certifi
 
 app = Flask(__name__)
 CORS(app)
 
 # ====================== MongoDB Connection ======================
 MONGO_URL = os.getenv("MONGO_URL", "mongodb+srv://takudzwanashechigwaya:%40Taku3002@expressdb.0nouyzb.mongodb.net/prototypeConnect?retryWrites=true&w=majority&appName=expressDB")
-client = pymongo.MongoClient(MONGO_URL)
+client = pymongo.MongoClient(
+    MONGO_URL,
+    tls=True,
+    tlsCAFile=certifi.where()
+)
 db = client.get_database("prototypeConnect")   # Change if your DB name is different
 
 products_collection = db.products
@@ -27,7 +32,7 @@ def build_interaction_matrix():
     global similarity_matrix, product_ids
 
     # Get all activities from last 90 days (recency)
-    cutoff = datetime.utcnow() - timedelta(days=90)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=90)
     activities = list(activity_collection.find({"timestamp": {"$gte": cutoff}}))
 
     if not activities:
@@ -111,7 +116,7 @@ def get_recommendations():
         if prod_name in product_map:
             weight = {"view": 1, "click": 3, "add-to-cart": 5, "purchase": 10}.get(action, 1)
             # Recency boost
-            days_old = (datetime.utcnow() - act["timestamp"]).days
+            days_old = (datetime.now(timezone.utc) - act["timestamp"]).days
             recency_factor = max(0.2, 1 - (days_old / 30))
             user_vector[product_map[prod_name]] += weight * recency_factor
 
@@ -143,4 +148,4 @@ if __name__ == '__main__':
     # Build similarity matrix on startup
     build_interaction_matrix()
     print("✅ Advanced Hybrid Recommendation Engine Started")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)

@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useEffect } from 'react';
 import { useTheme } from '@/hooks/useTheme';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import SegmentTabs from './SegmentTabs';
+import NotificationPanel from './NotificationPanel';
 
 import {
   FaUser,
@@ -16,6 +19,8 @@ import {
   FaBars,
   FaTimes,
   FaSun,
+  FaSign,
+  FaUserLock,
 } from 'react-icons/fa';
 
 import Link from 'next/link';
@@ -291,6 +296,28 @@ const ThemeCardWrapper = styled.div`
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showTheme, setShowTheme] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      if (headerRef.current) {
+        document.documentElement.style.setProperty('--header-height', `${headerRef.current.offsetHeight}px`);
+      }
+    };
+    updateHeaderHeight();
+    window.addEventListener('resize', updateHeaderHeight);
+    return () => window.removeEventListener('resize', updateHeaderHeight);
+  }, [isLoggedIn]); // re-measure when the segment tabs appear/disappear, since that changes header height
+
+  
+    useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => res.json())
+      .then((data) => setIsLoggedIn(!!data.authenticated))
+      .catch(() => setIsLoggedIn(false));
+  }, []);
+
 
   const { theme, toggleTheme } = useTheme();
   const { cart } = useCart();
@@ -304,6 +331,14 @@ export default function Header() {
   };
 
   const router = useRouter();
+    const pathname = usePathname();
+
+  function currentDashboardRole(): 'customer' | 'seller' | 'delivery' | null {
+    if (pathname.startsWith('/seller')) return 'seller';
+    if (pathname.startsWith('/delivery')) return 'delivery';
+    if (pathname.startsWith('/customer')) return 'customer';
+    return null; // on a shared/public page — logout button here defaults to buyer, since that's the primary browsing identity
+  }
 
   // FIX 2: Changed NodeJS.Timeout to ReturnType<typeof setTimeout> for browser compatibility
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -313,7 +348,23 @@ export default function Header() {
       router.push('/admin');
     }, 3000);
   };
+  const handleRoleNav = async (target: 'seller' | 'delivery') => {
+    setIsMenuOpen(false);
+    try {
+      const res = await fetch('/api/auth/me');
+      const data = await res.json();
+      const alreadyLoggedIn = Array.isArray(data.roles) && data.roles.includes(target);
 
+      if (alreadyLoggedIn) {
+        router.push(target === 'seller' ? '/seller/dashboard' : '/delivery/dashboard');
+      } else {
+        router.push(`/auth?role=${target}&mode=signin`);
+      }
+    } catch {
+      // If the check fails for any reason, fall back to the safe default
+      router.push(`/auth?role=${target}&mode=signin`);
+    }
+  };
   const endPress = () => {
     if (timer.current) {
       clearTimeout(timer.current);
@@ -347,17 +398,26 @@ export default function Header() {
           />
         </div>
 
+        {/* SEGMENT TABS — always visible, independent of the collapsible mobile nav */}
+        
+          <div className={styles.segmentRow}>
+            <SegmentTabs />
+          </div>
+        
+
         {/* DESKTOP NAVIGATION */}
         <nav
           className={`${styles.nav} ${isMenuOpen ? styles.open : ''}`}
           style={{ display: 'flex', gap: '28px', fontWeight: '700', fontSize: '1.05rem', fontFamily: '"Stack Sans Notch", sans-serif', fontOpticalSizing: 'auto', fontStyle: 'normal' }}
         >
-          
         </nav>
+          
+        
 
         {/* RIGHT ICONS */}
-        <div className={styles.icons} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Link href="/customer/dashboard"><FaUser size={20} /></Link>
+                <div className={styles.icons} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <NotificationPanel asRole="buyer" />
+          <Link href="/auth"><FaUserLock size={20} /></Link>
           <Link href="/cart" style={{ marginTop: '-5px' }}><NotificationBell itemCount={cartCount} /></Link>
 
           <StyledFilterButton onClick={toggleFilter} title="Filter / Settings">
@@ -379,9 +439,13 @@ export default function Header() {
       {/* MOBILE MENU */}
       <MobileMenu open={isMenuOpen}>
         <Link href="/" className="menuButton" onClick={() => setIsMenuOpen(false)}><FaShoppingBag />Shop</Link>
-        <Link href="/blog" className="menuButton" onClick={() => setIsMenuOpen(false)}><FaBlog />Blog</Link>
-        <Link href="/seller/login" className="menuButton" onClick={() => setIsMenuOpen(false)}><FaStore />Seller</Link>
-        <Link href="/delivery/login" className="menuButton" onClick={() => setIsMenuOpen(false)}><FaTruck />Delivery</Link>
+        
+                 <button className="menuButton" onClick={() => handleRoleNav('seller')}>
+          <FaStore />Seller
+        </button>
+        <button className="menuButton" onClick={() => handleRoleNav('delivery')}>
+          <FaTruck />Delivery
+        </button>
 
         {/* FIX 6: Replaced invalid <Link href=""> with a <button> for the Admin long-press action */}
         <button
@@ -408,7 +472,28 @@ export default function Header() {
           Theme
         </div>
 
-        <Link href="/logout" className="menuButton" onClick={() => setIsMenuOpen(false)}><FaSignOutAlt />Logout</Link>
+                <button
+          className="menuButton"
+          onClick={async () => {
+            setIsMenuOpen(false);
+            const activeRole = currentDashboardRole() ?? 'customer';
+            const roleToApiRole: Record<string, string> = { customer: 'customer', seller: 'seller', delivery: 'delivery' };
+            const roleToStorageKey: Record<string, string> = {
+              customer: 'customerId',
+              seller: 'sellerId',
+              delivery: 'deliveryGuyId',
+            };
+            await fetch('/api/auth/logout', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ role: roleToApiRole[activeRole] }),
+            });
+            localStorage.removeItem(roleToStorageKey[activeRole]);
+            window.location.href = '/';
+          }}
+        >
+          <FaSignOutAlt />Logout ({currentDashboardRole() ?? 'buyer'})
+        </button>
       </MobileMenu>
 
       {/* MOBILE RESPONSIVE CSS */}

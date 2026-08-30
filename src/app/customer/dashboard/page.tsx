@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
 import Loader from '@/components/Loader';
+import LocationSettings from '@/components/LocationSettings';
+import React from 'react';
+
 
 interface OrderItem {
   productName: string;
@@ -40,7 +43,7 @@ export default function CustomerDashboard() {
 
   useEffect(() => {
     const id = localStorage.getItem('customerId');
-    if (!id) { router.push('/customer/login'); return; }
+    if (!id) { router.push('/auth'); return; }
     setCustomerId(id);
     fetchCustomerProfile(id);
     fetchOrders(id);
@@ -57,12 +60,28 @@ export default function CustomerDashboard() {
 
   const fetchOrders = async (id: string) => {
     try {
-      const res = await fetch('/api/orders');
-      const allOrders: Order[] = await res.json();
-      setOrders(allOrders.filter(order => order.customer === id));
+      const res = await fetch('/api/orders?as=buyer');
+            const scopedOrders: Order[] = await res.json();
+      setOrders(scopedOrders);
     } catch (err) { console.error('Failed to load orders', err); }
     finally { setLoading(false); }
   };
+
+    const handleCancelOrder = async (orderId: string) => {
+    if (!confirm('Cancel this order? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/orders/${orderId}/cancel`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        if (customerId) fetchOrders(customerId);
+      } else {
+        alert(data.message || 'Failed to cancel order.');
+      }
+    } catch {
+      alert('Network error — please try again.');
+    }
+  };
+
 
   const getTrackingData = (status: string) => {
     if (status === 'pending')    return { progress: '0%',   label: 'Not Shipped', dot1: true,  dot2: false, dot3: false };
@@ -129,6 +148,11 @@ export default function CustomerDashboard() {
                 <span style={{ fontSize: '11px', wordBreak: 'break-all' }}>{customerId}</span>
               </InfoRow>
             </ProfileInfo>
+
+
+            <div style={{ marginTop: 16 }}>
+  <LocationSettings role="buyer" userId={customerId!} />
+</div>
           </ProfileContent>
         </ProfileCard>
 
@@ -142,8 +166,25 @@ export default function CustomerDashboard() {
               return (
                 <TrackingCard key={order._id}>
 
-                  <TrackingTop>
+                                    <TrackingTop>
                     <div className="id">Order ID: #{order._id.slice(-6)}</div>
+                    {order.status === 'pending' && (
+                      <button
+                        onClick={() => handleCancelOrder(order._id)}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid #ef4444',
+                          color: '#ef4444',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: '4px 10px',
+                          borderRadius: 999,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Cancel order
+                      </button>
+                    )}
                     <div className="type">Customer Delivery</div>
                   </TrackingTop>
 
@@ -228,7 +269,7 @@ const DashboardContainer = styled.div`
   max-width: 1400px;
   margin: auto;
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f5f5, #ececec);
+  background: var(--bg-base);
 
   @media (max-width: 768px) {
     padding: 16px 12px;
@@ -241,7 +282,7 @@ const Header = styled.div`
 
   h1 {
     font-size: 2.2rem;
-    color: #111;
+    color: var(--text-primary);
     margin-bottom: 6px;
   }
 
@@ -268,12 +309,12 @@ const MainContent = styled.div`
 /* ── PROFILE ── */
 
 const ProfileCard = styled.div`
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(18px);
+  background: var(--bg-card);
+  color: var(--text-primary);
   border-radius: 32px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 0 15px 40px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.9);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow, 0 15px 40px rgba(0,0,0,0.07));
 
   @media (max-width: 768px) {
     border-radius: 24px;
@@ -283,7 +324,7 @@ const ProfileCard = styled.div`
 const Cover = styled.div`
   position: relative;
   height: 120px;
-  background-color: black;
+  background-color:black;
 
   @media (max-width: 768px) {
     height: 90px;
@@ -351,9 +392,10 @@ const ProfileContent = styled.div`
     font-size: 22px;
     margin-bottom: 4px;
     margin-top: 6px;
+    color: var(--text-primary);
   }
 
-  p { color: #777; font-size: 13px; }
+  p { color: var(--text-muted); font-size: 13px; }
 
   @media (max-width: 768px) {
     padding: 10px 12px 14px;
@@ -367,16 +409,16 @@ const Stats = styled.div`
   justify-content: space-between;
   padding: 10px 8px;
   border-radius: 20px;
-  background: white;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  background: var(--bg-card-deep, var(--bg-card));
+  box-shadow: var(--shadow, 0 10px 25px rgba(0,0,0,0.05));
 `;
 
 const Stat = styled.div`
   flex: 1;
   text-align: center;
 
-  h3 { font-size: 20px; color: #111; }
-  span { font-size: 12px; color: #777; }
+  h3 { font-size: 20px; color: var(--text-primary); }
+  span { font-size: 12px; color: var(--text-muted); }
 
   @media (max-width: 768px) {
     h3 { font-size: 16px; }
@@ -394,8 +436,9 @@ const InfoRow = styled.div`
   margin-bottom: 8px;
   gap: 8px;
   font-size: 13px;
+  color: var(--text-primary);
 
-  span { color: #666; }
+  span { color: var(--text-muted); }
 
   @media (max-width: 768px) {
     font-size: 12px;
@@ -412,7 +455,7 @@ const OrderHistorySection = styled.div`
 
 const SectionTitle = styled.h2`
   font-size: 18px;
-  color: #111;
+  color: var(--text-primary);
 
   @media (max-width: 768px) {
     font-size: 15px;
@@ -420,7 +463,7 @@ const SectionTitle = styled.h2`
 `;
 
 const EmptyText = styled.p`
-  color: #777;
+  color: var(--text-muted);
 `;
 
 const TrackingCard = styled.div`
