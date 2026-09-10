@@ -1,6 +1,7 @@
 'use client';
 
 import styled from 'styled-components';
+import { useState, useEffect } from 'react';
 
 interface FilterProps {
   searchQuery: string;
@@ -18,6 +19,12 @@ interface FilterProps {
 
 const categories = ['Electronics', 'Fashion', 'Home', 'Music', 'Books', 'Sports', 'Beauty'];
 
+interface SuggestProduct {
+  _id: string;
+  productName: string;
+  imageLink?: string;
+}
+
 export default function AdvancedFilterSidebar({
   searchQuery,
   setSearchQuery,
@@ -31,6 +38,30 @@ export default function AdvancedFilterSidebar({
   setSortBy,
   onClearFilters,
 }: FilterProps) {
+
+    const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestProducts, setSuggestProducts] = useState<SuggestProduct[]>([]);
+  const [suggestCategories, setSuggestCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+      setSuggestProducts([]);
+      setSuggestCategories([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/products/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        const data = await res.json();
+        setSuggestProducts(data.products || []);
+        setSuggestCategories(data.categories || []);
+      } catch {
+        // fail silently
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const toggleCategory = (cat: string) => {
     if (selectedCategories.includes(cat)) {
       setSelectedCategories(selectedCategories.filter(c => c !== cat));
@@ -60,12 +91,13 @@ export default function AdvancedFilterSidebar({
           </svg>
         </div>
 
-        <input
+                <input
           placeholder="Search products..."
           className="ai-input"
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          onFocus={() => setShowSuggestions(true)}
         />
 
         <button className="send-button" type="button">
@@ -83,6 +115,22 @@ export default function AdvancedFilterSidebar({
           </svg>
         </button>
       </div>
+
+      {showSuggestions && (suggestProducts.length > 0 || suggestCategories.length > 0) && (
+        <div className="suggest-panel">
+          {suggestCategories.map((c) => (
+            <div key={c} className="suggest-item" onMouseDown={() => { setSearchQuery(c); setShowSuggestions(false); }}>
+              <span className="suggest-tag">Category</span> {c}
+            </div>
+          ))}
+          {suggestProducts.map((p) => (
+            <div key={p._id} className="suggest-item" onMouseDown={() => { setSearchQuery(p.productName); setShowSuggestions(false); }}>
+              <img src={p.imageLink || '/placeholder.png'} alt="" />
+              {p.productName}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Categories with exact gooey checkbox design */}
       <div className="filter-section">
@@ -218,6 +266,27 @@ const FilterContainer = styled.div`
       0 10px 20px rgba(0, 0, 0, 0.15),
       0 0 0 2px rgba(15, 5, 151, 0.4);
   }
+        .suggest-panel {
+    background: var(--bg-card, #fff);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    margin-top: -14px;
+    margin-bottom: 16px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .suggest-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  .suggest-item:hover { background: var(--bg-card-deep, #f5f5f5); }
+  .suggest-item img { width: 26px; height: 26px; border-radius: 4px; object-fit: cover; }
+  .suggest-tag { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
 
   .ai-icon {
     padding: 0 12px 0 8px;
