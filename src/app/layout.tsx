@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
+import OfflineBanner from '../components/OfflineBanner';
 
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -48,6 +49,7 @@ export default function RootLayout({
               </div>
               <Footer />
               <MobileBottomBar />
+              <OfflineBanner />
             </ProductProvider>
           </CartProvider>
         </NotificationProvider>

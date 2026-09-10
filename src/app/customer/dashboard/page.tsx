@@ -6,9 +6,11 @@ import styled from 'styled-components';
 import Loader from '@/components/Loader';
 import LocationSettings from '@/components/LocationSettings';
 import React from 'react';
+import { useCart } from '@/context/CartContext';
 
 
 interface OrderItem {
+  product: string;
   productName: string;
   quantity: number;
   price: number;
@@ -39,7 +41,9 @@ export default function CustomerDashboard() {
   const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
   const router = useRouter();
+  const { addToCart } = useCart();
 
   useEffect(() => {
     const id = localStorage.getItem('customerId');
@@ -81,6 +85,47 @@ export default function CustomerDashboard() {
       alert('Network error — please try again.');
     }
   };
+
+
+  const handleReorder = async (order: Order) => {
+    setReorderingId(order._id);
+    let addedCount = 0;
+    let unavailableCount = 0;
+
+    try {
+      for (const item of order.products) {
+        if (!item.product) continue;
+        try {
+          const res = await fetch(`/api/products/${item.product}`);
+          if (!res.ok) {
+            unavailableCount++;
+            continue;
+          }
+          const product = await res.json();
+          if (product.quantity > 0) {
+            addToCart(product);
+            addedCount++;
+          } else {
+            unavailableCount++;
+          }
+        } catch {
+          unavailableCount++;
+        }
+      }
+
+      if (addedCount === 0) {
+        alert('None of the items from this order are currently available.');
+      } else if (unavailableCount > 0) {
+        alert(`Added ${addedCount} item(s) to your cart. ${unavailableCount} item(s) are no longer available.`);
+        router.push('/cart');
+      } else {
+        router.push('/cart');
+      }
+    } finally {
+      setReorderingId(null);
+    }
+  };
+
 
 
   const getTrackingData = (status: string) => {
@@ -166,25 +211,46 @@ export default function CustomerDashboard() {
               return (
                 <TrackingCard key={order._id}>
 
-                                    <TrackingTop>
+                                                                   <TrackingTop>
                     <div className="id">Order ID: #{order._id.slice(-6)}</div>
-                    {order.status === 'pending' && (
-                      <button
-                        onClick={() => handleCancelOrder(order._id)}
-                        style={{
-                          background: 'transparent',
-                          border: '1px solid #ef4444',
-                          color: '#ef4444',
-                          fontSize: 11,
-                          fontWeight: 600,
-                          padding: '4px 10px',
-                          borderRadius: 999,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Cancel order
-                      </button>
-                    )}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {order.status === 'pending' && (
+                        <button
+                          onClick={() => handleCancelOrder(order._id)}
+                          style={{
+                            background: 'transparent',
+                            border: '1px solid #ef4444',
+                            color: '#ef4444',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: '4px 10px',
+                            borderRadius: 999,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Cancel order
+                        </button>
+                      )}
+                      {order.status === 'delivered' && (
+                        <button
+                          onClick={() => handleReorder(order)}
+                          disabled={reorderingId === order._id}
+                          style={{
+                            background: '#5b6cff',
+                            border: 'none',
+                            color: 'white',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: '4px 10px',
+                            borderRadius: 999,
+                            cursor: reorderingId === order._id ? 'not-allowed' : 'pointer',
+                            opacity: reorderingId === order._id ? 0.6 : 1,
+                          }}
+                        >
+                          {reorderingId === order._id ? 'Adding…' : 'Buy again'}
+                        </button>
+                      )}
+                    </div>
                     <div className="type">Customer Delivery</div>
                   </TrackingTop>
 

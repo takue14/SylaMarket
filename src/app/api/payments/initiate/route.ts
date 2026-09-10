@@ -22,11 +22,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'This order is set to pay on delivery.' }, { status: 400 });
     }
 
-    const paynow = getPaynowClient();
-       const payment = paynow.createPayment(`order-${order._id.toString().slice(-8)}`, order.contact);
-    order.products.forEach((item: { productName: string; quantity: number; price: number }) => {
-      payment.add(item.productName, item.price * item.quantity);
-    });
+        const paynow = getPaynowClient();
+    const payment = paynow.createPayment(`order-${order._id.toString().slice(-8)}`, order.contact);
+
+    if (order.isSplitPayment && order.depositAmount > 0) {
+      // Charge only the deposit now — the balance is collected on delivery,
+      // same as a Cash on Delivery leg for the remainder.
+      payment.add(`Deposit for order #${order._id.toString().slice(-6)}`, order.depositAmount);
+    } else {
+      order.products.forEach((item: { productName: string; quantity: number; price: number }) => {
+        payment.add(item.productName, item.price * item.quantity);
+      });
+    }
     
 
     let response;

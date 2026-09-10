@@ -460,7 +460,16 @@ export default function Header() {
         </button>
 
         <Link href="/credits" className="menuButton" onClick={() => setIsMenuOpen(false)}><FaCoins />Credits</Link>
+               
+               
+                <Link href="/wishlist" className="menuButton" onClick={() => setIsMenuOpen(false)}>
+          ♥ Wishlist
+        </Link>
+        <Link href="/settings/history" className="menuButton" onClick={() => setIsMenuOpen(false)}>
+          🕘 View History
+        </Link>
 
+        
         <div className="divider" />
 
         {/* Theme replaces Settings */}

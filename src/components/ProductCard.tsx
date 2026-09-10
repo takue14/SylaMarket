@@ -6,6 +6,7 @@ import styles from '@/styles/ProductCard.module.css';
 import { Product } from '@/types/product';
 import { useCart } from '@/context/CartContext';
 import { useProductRating } from '@/hooks/useProductRating';
+import { useState, useEffect } from 'react';
 
 interface Props {
   product: Product;
@@ -46,23 +47,71 @@ function StarDisplay({ average, count }: { average: number; count: number }) {
 
 export default function ProductCard({ product, onClick }: Props) {
   const { addToCart } = useCart();
-
-  // ── Real-time rating ──
   const { average, count } = useProductRating(product._id);
+  const [wishlisted, setWishlisted] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/wishlist/status')
+      .then((res) => res.json())
+      .then((data) => setWishlisted((data.wishlisted || []).includes(product._id)))
+      .catch(() => {});
+  }, [product._id]);
+
+  const handleWishlistToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const customerId = localStorage.getItem('customerId');
+    if (!customerId) {
+      window.location.href = '/auth?role=buyer&mode=signin';
+      return;
+    }
+    try {
+      const res = await fetch('/api/wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product._id }),
+      });
+      const data = await res.json();
+      setWishlisted(data.wishlisted);
+    } catch {
+      // fail silently — non-critical
+    }
+  };
 
   const imageStyle: CSSProperties = {
     ['--bg-color']: '#a78bfa',
   } as CSSProperties;
 
-  const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    addToCart(product);
+    const added = addToCart(product);
+    if (added) {
+      const customerId = localStorage.getItem('customerId');
+      if (customerId) {
+        fetch('/api/activity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'add_to_cart', product: { _id: product._id, productName: product.productName, imageLink: product.imageLink } }),
+        }).catch(() => {});
+      }
+    }
+  };
+
+    const handleCardClick = () => {
+    const customerId = localStorage.getItem('customerId');
+    if (customerId) {
+      fetch('/api/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'view', product: { _id: product._id, productName: product.productName, imageLink: product.imageLink } }),
+      }).catch(() => {});
+    }
+    onClick();
   };
 
   return (
     <div
       className={styles.card}
-      onClick={onClick}
+      onClick={handleCardClick}
       role="button"
       tabIndex={0}
       aria-label={`View ${product.productName}`}
@@ -72,6 +121,29 @@ export default function ProductCard({ product, onClick }: Props) {
 
       <div className={styles.card__content}>
         <div className={styles.card__badge}>NEW</div>
+                <button
+          onClick={handleWishlistToggle}
+          aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 5,
+            background: 'rgba(0,0,0,0.45)',
+            border: 'none',
+            borderRadius: '50%',
+            width: 30,
+            height: 30,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill={wishlisted ? '#ef4444' : 'none'} stroke={wishlisted ? '#ef4444' : '#fff'} strokeWidth="2">
+            <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" />
+          </svg>
+        </button>
 
                 <ImageCarousel
           images={product.images?.length ? product.images : product.imageLink ? [product.imageLink] : []}
@@ -89,7 +161,16 @@ export default function ProductCard({ product, onClick }: Props) {
           <p className={styles.card__description}>{product.description}</p>
 
           <div className={styles.card__footer}>
-            <p className={styles.card__price}>${product.price.toFixed(2)}</p>
+                        {product.salePrice != null && product.salePrice < product.price ? (
+              <p className={styles.card__price}>
+                <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)', marginRight: 6, fontSize: '0.85em' }}>
+                  ${product.price.toFixed(2)}
+                </span>
+                ${product.salePrice.toFixed(2)}
+              </p>
+            ) : (
+              <p className={styles.card__price}>${product.price.toFixed(2)}</p>
+            )}
 
             <button className={styles.card__button} onClick={handleAddToCart}>
               <svg height={16} width={16} viewBox="0 0 24 24">

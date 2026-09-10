@@ -15,6 +15,8 @@ import CategoryProductsPanel from './CategoryProductsPanel';
 import StoreSpotlightCard from './StoreSpotlightCard';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import CountryPicker from './CountryPicker';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+
 
 import {
   FaHome,
@@ -330,6 +332,10 @@ const [activeCategoryModal, setActiveCategoryModal] = useState<string | null>(nu
   }, []);
 
   useEffect(() => {
+    
+  }, [customerId]);
+
+  useEffect(() => {
     const timer = setTimeout(() => setShowSkeleton(false), 800);
     return () => clearTimeout(timer);
   }, []);
@@ -362,7 +368,9 @@ const [activeCategoryModal, setActiveCategoryModal] = useState<string | null>(nu
      PRODUCTS
   ========================= */
 
-   const { coords, country, status, setManualCountry } = useUserLocation(customerId);
+     const { coords, country, status, setManualCountry } = useUserLocation(customerId);
+     usePushNotifications(!!customerId);
+     
 
   const loadProducts = async (pageNum: number) => {
     setLoading(true);
@@ -380,14 +388,32 @@ const [activeCategoryModal, setActiveCategoryModal] = useState<string | null>(nu
     setLoading(false);
   };
 
-    useEffect(() => {
-    // Wait until location resolution has settled (saved, denied, or
-    // manually picked) before the first fetch, so it's filtered/sorted
-    // correctly from the start instead of loading unfiltered then refetching.
-    if (products.length === 0 && (status === 'saved' || status === 'denied' || status === 'manual' || status === 'unsupported')) {
-      loadProducts(1);
-    }
-  }, [status]);
+    // Reloads products fresh (replacing, not appending) whenever the
+  // location context settles or changes — this is what makes location
+  // selection reflect in real time instead of needing a manual refresh.
+  useEffect(() => {
+    const settled = status === 'saved' || status === 'denied' || status === 'manual' || status === 'unsupported';
+    if (!settled) return;
+
+    const reload = async () => {
+      setLoading(true);
+      setPage(1);
+      const params = new URLSearchParams({ page: '1', limit: String(limit) });
+      if (coords) {
+        params.set('lat', String(coords.lat));
+        params.set('lng', String(coords.lng));
+      }
+      if (country) params.set('country', country);
+      const res = await fetch(`/api/products?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setProducts(data); // replace — a location change should reset the list, not append to it
+      }
+      setLoading(false);
+    };
+
+    reload();
+  }, [status, country, coords?.lat, coords?.lng]);
 
   /* =========================
      RECOMMENDATIONS
@@ -623,7 +649,7 @@ const categoryModalProducts = useMemo(() => {
 
       {/* MAIN */}
       <div className={styles.mainContent}>
-              {status === 'denied' && !country && (
+                 {(status === 'denied' || status === 'unsupported') && !country && (
         <CountryPicker onSelect={setManualCountry} />
       )}
         <main className={styles.productGrid}>

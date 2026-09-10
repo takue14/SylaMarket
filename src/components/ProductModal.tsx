@@ -642,7 +642,16 @@ export default function ProductModal({ product, isOpen, onClose, onSelectRelated
 
           <DetailsSection>
             <ProductTitle>{product.productName}</ProductTitle>
-            <PriceTag>${product.price.toFixed(2)}</PriceTag>
+                        {product.salePrice != null && product.salePrice < product.price ? (
+              <PriceTag>
+                <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)', fontSize: '0.55em', marginRight: 8 }}>
+                  ${product.price.toFixed(2)}
+                </span>
+                ${product.salePrice.toFixed(2)}
+              </PriceTag>
+            ) : (
+              <PriceTag>${product.price.toFixed(2)}</PriceTag>
+            )}
                         <Description>{product.description || 'No description available.'}</Description>
             <SellerLine>Sold by {product.seller?.businessName || product.seller?.name || 'Unknown seller'}</SellerLine>
 

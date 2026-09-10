@@ -4,13 +4,13 @@ import styled from 'styled-components';
 import ProductCard from './ProductCard';
 import { Product } from '@/types/product';
 
-const Overlay = styled.div<{ isOpen: boolean }>`
+const Overlay = styled.div<{ $isOpen: boolean }>`
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.6);
   z-index: 9997;
-  opacity: ${p => (p.isOpen ? 1 : 0)};
-  visibility: ${p => (p.isOpen ? 'visible' : 'hidden')};
+  opacity: ${(p) => (p.$isOpen ? 1 : 0)};
+  visibility: ${p => (p.$isOpen ? 'visible' : 'hidden')};
   transition: all 0.3s ease;
 `;
 
@@ -99,7 +99,7 @@ export default function CategoryProductsPanel({ category, products, onClose, onP
 
   return (
     <>
-      <Overlay isOpen={isOpen} onClick={onClose} />
+      <Overlay $isOpen={isOpen} onClick={onClose} />
       <Panel isOpen={isOpen}>
         <Header>
           <Title>{category}</Title>

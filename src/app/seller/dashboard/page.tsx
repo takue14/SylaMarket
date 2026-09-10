@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
 import Link from 'next/link';
 import LocationSettings from '@/components/LocationSettings';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 interface Product {
   _id: string;
@@ -382,6 +383,7 @@ export default function SellerDashboard() {
   const [restockAmounts, setRestockAmounts] = useState<Record<string, number>>({});
 
   const router = useRouter();
+  usePushNotifications(!!sellerId);
 
   // ----- carousel drag state -----
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -579,6 +581,12 @@ export default function SellerDashboard() {
                     <CircleIcon>+</CircleIcon> Upload products
                   </ActionBtn>
                 </Link>
+
+                <Link href="/seller/bulk-upload" passHref legacyBehavior>
+                  <ActionBtn as="a">
+                    <CircleIcon>≡</CircleIcon> Bulk CSV
+                  </ActionBtn>
+                </Link>
               </ActionRow>
             </BalanceCard>
 
@@ -736,6 +744,13 @@ export default function SellerDashboard() {
                         +
                       </button>
                     </div>
+
+                                        <button
+                      onClick={() => router.push(`/seller/products/${product._id}/edit`)}
+                      style={{ background: '#3b82f6', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', cursor: 'pointer' }}
+                    >
+                      Edit
+                    </button>
 
                     <button
                       onClick={() => deleteProduct(product._id)}

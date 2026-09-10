@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import styled from 'styled-components';
 import { useCart } from '@/context/CartContext';
 import { resolvePostLoginIntent } from '@/lib/cartIntent';
+import { useNotification } from '@/context/NotificationContext';
 
 /* ============================================================
    Role configuration
@@ -592,6 +593,7 @@ function AuthGateway() {
 
 
   async function handleVerifyLoginOtp(e: React.FormEvent) {
+    
     e.preventDefault();
     if (!loginOtpPending) return;
     setError('');
@@ -631,6 +633,8 @@ function AuthGateway() {
         }
 
         setSuccess('Signed in — redirecting…');
+        const { notify } = useNotification();
+        notify('Welcome back!', 'success');
         setTimeout(() => router.push(loginCfg.redirectAfterLogin), 600);
       } else {
         setError(data.message || 'Invalid code.');

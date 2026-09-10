@@ -5,6 +5,9 @@ import Product from '@/models/Product';
 import { getSession } from '@/lib/session';
 import { forwardGeocode } from '@/lib/geocoding';
 import DeliveryGuy from '@/models/DeliveryGuy';
+import { createNotification } from '@/lib/notifications';
+import { estimateDeliveryMinutes } from '@/lib/eta';
+import { Seller } from '@/models/Seller';
 
 interface CartLineInput {
   productId: string;
@@ -36,9 +39,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
-    let orderCountry: string | null = null;
+        let orderCountry: string | null = null;
+    let deliveryCoords: { lat: number; lng: number } | null = null;
     const geocoded = await forwardGeocode(location.trim()).catch(() => null);
     if (geocoded?.country) orderCountry = geocoded.country;
+    if (geocoded) deliveryCoords = { lat: geocoded.lat, lng: geocoded.lng };
+
+    deliveryCoords
 
     const orderItems: Array<{
       product: string;
@@ -86,9 +93,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: (stockErr as Error).message }, { status: 409 });
     }
 
-    const totalAmount = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const totalAmount = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const { isSplitPayment } = body as { isSplitPayment?: boolean };
+    let depositAmount = 0;
+    let balanceDue = totalAmount;
 
-       const newOrder = await Order.create({
+    if (isSplitPayment && paymentMethod !== 'cod') {
+      // Recompute per-line, server-side — never trust a client-sent total.
+      // Each line's deposit is its own seller-set percentage of its own
+      // line total; items with no percentage set are paid in full upfront.
+      const productDocs = await Product.find({
+        _id: { $in: orderItems.map((i) => i.product) },
+      }).select('_id depositPercentage');
+      const pctById = new Map(productDocs.map((p) => [p._id.toString(), p.depositPercentage]));
+
+      depositAmount = orderItems.reduce((sum, item) => {
+        const pct = pctById.get(item.product);
+        const lineTotal = item.price * item.quantity;
+        const lineDeposit = pct != null ? Math.round(lineTotal * (pct / 100) * 100) / 100 : lineTotal;
+        return sum + lineDeposit;
+      }, 0);
+      balanceDue = Math.round((totalAmount - depositAmount) * 100) / 100;
+    }
+
+    const newOrder = await Order.create({
       customer: session.id,
       customerName: customerName.trim(),
       contact: contact.trim(),
@@ -99,8 +127,13 @@ export async function POST(req: NextRequest) {
       status: 'pending',
       claimedBy: null,
       paymentMethod,
-      paymentStatus: paymentMethod === 'cod' ? 'cod_pending' : 'awaiting_payment',
+      isSplitPayment: !!isSplitPayment && paymentMethod !== 'cod',
+      depositAmount,
+      balanceDue,
+      paymentStatus: paymentMethod === 'cod' ? 'cod_pending' : depositAmount > 0 ? 'deposit_paid' : 'awaiting_payment',
+      estimatedMinutes: { type: Number, default: null }
     });
+
 
     // Cash on Delivery orders are confirmed immediately — send an order
     // confirmation now. Online payment methods only get a receipt once
@@ -151,17 +184,17 @@ export async function GET(req: NextRequest) {
   if (session.role === 'customer') {
     orders = await Order.find({ customer: session.id }).sort({ createdAt: -1 });
     } else if (session.role === 'seller') {
-    orders = await Order.find({
+        orders = await Order.find({
       'products.seller': session.id,
-      paymentStatus: { $in: ['paid', 'cod_pending'] },
+      paymentStatus: { $in: ['paid', 'cod_pending', 'deposit_paid'] },
     }).sort({ createdAt: -1 });
   } else if (session.role === 'delivery') {
     const driver = await DeliveryGuy.findById(session.id).select('country');
     const driverCountry = driver?.country ?? null;
 
-        orders = await Order.find({
-      paymentStatus: { $in: ['paid', 'cod_pending'] },
-      $or: [
+          orders = await Order.find({
+      paymentStatus: { $in: ['paid', 'cod_pending', 'deposit_paid'] },
+      $or: [ 
         {
           $and: [
             { status: 'pending' },
@@ -187,7 +220,7 @@ export async function PATCH(req: NextRequest) {
 
   try {
     await connectToDB();
-    const { orderId, status } = await req.json();
+    const { orderId, status, balanceCollected } = await req.json();
     if (!orderId || !status) {
       return NextResponse.json({ message: 'orderId and status are required.' }, { status: 400 });
     }
@@ -202,6 +235,37 @@ export async function PATCH(req: NextRequest) {
       order.status = 'inprogress';
       order.claimedBy = session.id;
     } else if (isClaimedByMe) {
+      if (status === 'delivered' && order.isSplitPayment && order.balanceDue > 0 && !order.balanceCollected) {
+        if (balanceCollected !== true) {
+          return NextResponse.json(
+            {
+              message: `Confirm you have collected the remaining $${order.balanceDue.toFixed(2)} balance before marking this order delivered.`,
+              requiresBalanceConfirmation: true,
+              balanceDue: order.balanceDue,
+            },
+            { status: 409 }
+          );
+        }
+        order.balanceCollected = true;
+        order.balanceCollectedAt = new Date();
+
+        // Notify every seller who has an item in this order that the
+        // remaining balance was collected by the driver.
+        const uniqueSellers = [...new Set(order.products.map((p: { seller: any }) => p.seller.toString()))];
+        await Promise.all(
+          uniqueSellers.map((sellerId) =>
+            createNotification({
+              userId: sellerId as string,
+              role: 'seller',
+              type: 'balance_collected',
+              title: 'Delivery balance collected',
+              message: `The driver collected the remaining $${order.balanceDue.toFixed(2)} for order #${order._id.toString().slice(-6)}.`,
+              link: '/seller/dashboard',
+            })
+          )
+        );
+      }
+
       order.status = status;
       if (status === 'pending') order.claimedBy = null;
     } else {

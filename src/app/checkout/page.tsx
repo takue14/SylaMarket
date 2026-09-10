@@ -2,7 +2,7 @@
 
 import { useCart } from '@/context/CartContext';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState ,useEffect} from 'react';
 import styled, { keyframes } from 'styled-components';
 import { CartItem } from '@/context/CartContext';
 
@@ -19,12 +19,55 @@ export default function Checkout() {
   const [customerName, setCustomerName] = useState('');
   const [contact, setContact] = useState('');
   const [location, setLocation] = useState('');
-  const [selectedPayment, setSelectedPayment] = useState('Cash on Delivery');
+    const [selectedPayment, setSelectedPayment] = useState('Cash on Delivery');
+  const [wantsSplitPayment, setWantsSplitPayment] = useState(false);
+
+  // Only payment methods every item in the cart supports remain selectable —
+  // the rest render blurred/disabled instead of being hidden, so the buyer
+  // understands *why* an option isn't available.
+  const allowedMethods = cart.reduce<Set<string>>((acc, item, i) => {
+    const itemMethods = new Set(item.paymentMethods?.length ? item.paymentMethods : ['cod', 'ecocash', 'paynow']);
+    if (i === 0) return itemMethods;
+    return new Set([...acc].filter((m) => itemMethods.has(m)));
+  }, new Set());
+
+    // Each cart line calculates its own deposit independently — a mixed
+  // cart of items with different (or no) deposit rules is fine now.
+  // Items with no depositPercentage set are simply paid in full upfront,
+  // same as before; only items that opted into a deposit contribute one.
+  const lineDeposits = cart.map((item) => {
+    const pct = item.depositPercentage;
+    const lineTotal = item.price * item.quantity;
+    const deposit = pct != null ? Math.round(lineTotal * (pct / 100) * 100) / 100 : lineTotal;
+    return { productId: item._id, lineTotal, deposit, hasSplitOption: pct != null };
+  });
+
+    const [savedAddresses, setSavedAddresses] = useState<Array<{ _id: string; label: string; fullAddress: string; contact: string }>>([]);
+
+  useEffect(() => {
+    fetch('/api/addresses')
+      .then((res) => res.json())
+      .then((data) => {
+        setSavedAddresses(data || []);
+        const def = data?.find((a: any) => a.isDefault);
+        if (def) {
+          setLocation(def.fullAddress);
+          setContact(def.contact);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
 
   const totalAmount = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
+
+  const totalDeposit = lineDeposits.reduce((sum, l) => sum + l.deposit, 0);
+  const totalBalance = totalAmount - totalDeposit;
+  const splitPaymentEligible = lineDeposits.some((l) => l.hasSplitOption);
+
 
   const handlePlaceOrder = async () => {
     if (!customerName.trim() || !contact.trim() || !location.trim()) {
@@ -42,11 +85,12 @@ export default function Checkout() {
       'Bank': 'paynow',
     };
 
-    const orderData = {
+          const orderData = {
       customerName: customerName.trim(),
       contact: contact.trim(),
       location: location.trim(),
       paymentMethod: methodMap[selectedPayment] || 'cod',
+      isSplitPayment: splitPaymentEligible && wantsSplitPayment,
       products: cart.map((item) => ({
         productId: item._id,
         quantity: item.quantity,
@@ -146,6 +190,17 @@ export default function Checkout() {
     { name: 'Bank', color: '#3B82F6', icon: '🏦' },
   ];
 
+
+    useEffect(() => {
+    const methodKeyMap: Record<string, string> = { 'Cash on Delivery': 'cod', Ecocash: 'ecocash', Bank: 'paynow' };
+    const currentKey = methodKeyMap[selectedPayment];
+    if (!allowedMethods.has(currentKey) && allowedMethods.size > 0) {
+      const nameByKey: Record<string, string> = { cod: 'Cash on Delivery', ecocash: 'Ecocash', paynow: 'Bank' };
+      const firstAllowed = [...allowedMethods][0];
+      setSelectedPayment(nameByKey[firstAllowed]);
+    }
+  }, [cart]);
+
   return (
     <StyledWrapper>
 
@@ -176,25 +231,42 @@ export default function Checkout() {
           {/* PAYMENT */}
           <div className="middle-wrapper">
             <div className="middle-section">
-              <div className="payment-methods">
-                {paymentMethods.map((method, i) => (
-                  <div
-                    key={i}
-                    className={`payment-card ${selectedPayment === method.name ? 'active' : ''}`}
-                    onClick={() => setSelectedPayment(method.name)}
-                    style={{
-                      background:
-                        selectedPayment === method.name
-                          ? `linear-gradient(135deg, ${method.color}, rgba(255,255,255,0.15))`
-                          : 'rgba(255,255,255,0.06)',
-                    }}
-                  >
-                    <div className="payment-shine" />
-                    <div className="payment-icon" style={{ color: method.color }}>{method.icon}</div>
-                    <div className="payment-name">{method.name}</div>
-                  </div>
-                ))}
+                            <div className="payment-methods">
+                {paymentMethods.map((method, i) => {
+                  const methodKeyMap: Record<string, string> = { 'Cash on Delivery': 'cod', Ecocash: 'ecocash', Bank: 'paynow' };
+                  const isAllowed = allowedMethods.has(methodKeyMap[method.name]);
+                  return (
+                    <div
+                      key={i}
+                      className={`payment-card ${selectedPayment === method.name ? 'active' : ''}`}
+                      onClick={() => isAllowed && setSelectedPayment(method.name)}
+                      style={{
+                        background:
+                          selectedPayment === method.name
+                            ? `linear-gradient(135deg, ${method.color}, rgba(255,255,255,0.15))`
+                            : 'rgba(255,255,255,0.06)',
+                        opacity: isAllowed ? 1 : 0.35,
+                        filter: isAllowed ? 'none' : 'blur(1.5px)',
+                        cursor: isAllowed ? 'pointer' : 'not-allowed',
+                        pointerEvents: isAllowed ? 'auto' : 'none',
+                        position: 'relative',
+                      }}
+                      title={isAllowed ? undefined : 'Not accepted for one or more items in your cart'}
+                    >
+                      <div className="payment-shine" />
+                      <div className="payment-icon" style={{ color: method.color }}>{method.icon}</div>
+                      <div className="payment-name">{method.name}</div>
+                    </div>
+                  );
+                })}
               </div>
+
+                            {splitPaymentEligible && selectedPayment !== 'Cash on Delivery' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, padding: '0 20px', color: '#fff', fontSize: 13 }}>
+                  <input type="checkbox" checked={wantsSplitPayment} onChange={(e) => setWantsSplitPayment(e.target.checked)} />
+                  Pay ${totalDeposit.toFixed(2)} now, ${totalBalance.toFixed(2)} on delivery
+                </label>
+              )}
               <div className="center-handle" />
             </div>
           </div>
@@ -294,6 +366,29 @@ export default function Checkout() {
           {/* FORM */}
           <div className="card">
             <label className="title">Checkout Details</label>
+
+            
+                          {savedAddresses.length > 0 && (
+                <div className="input-box" style={{ marginBottom: 8 }}>
+                  <select
+                    onChange={(e) => {
+                      const addr = savedAddresses.find((a) => a._id === e.target.value);
+                      if (addr) {
+                        setLocation(addr.fullAddress);
+                        setContact(addr.contact);
+                      }
+                    }}
+                    style={{ width: '100%', border: 'none', background: 'transparent', fontSize: 14 }}
+                  >
+                    <option value="">Choose a saved address…</option>
+                    {savedAddresses.map((a) => (
+                      <option key={a._id} value={a._id}>{a.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+
             <div className="form">
               <input
                 placeholder="Full Name"

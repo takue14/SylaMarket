@@ -157,12 +157,13 @@ export default function AcademicPage() {
                         <div className="author-name">{l.organizationName}</div>
                         {l.location && <div className="author-role">{l.location}</div>}
                       </div>
-                      {l.deadline && (
-                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-                          <span className="student-count">Due {new Date(l.deadline).toLocaleDateString()}</span>
-                        </div>
-                      )}
+                      
                     </div>
+                    {l.deadline && (
+    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+      <span className="student-count">Due {new Date(l.deadline).toLocaleDateString()}</span>
+    </div>
+  )}
                     <div className="card-footer">
                       <a href={l.externalUrl} target="_blank" rel="noopener noreferrer" className="enroll">
                         Enroll Now
@@ -257,40 +258,155 @@ export default function AcademicPage() {
         .tab { padding: clamp(8px,1.8vw,10px) clamp(13px,2.6vw,20px); font-size: clamp(12px, 1.6vw, 13.5px); color: var(--grey); border-radius: 999px; background: transparent; white-space: nowrap; flex-shrink: 0; }
         .tab.active { background: var(--white); color: var(--bg-base); font-weight: 600; }
         .tab:hover:not(.active) { color: var(--white); }
-.course-grid {
+
+        /* ==========================================================
+           Course card grid — restyled to match the strawberry
+           product-card system (rounded white cards, cream/terracotta
+           accents, pill tags & full-width pill button). Colors here
+           are intentionally hardcoded rather than pulled from the
+           dark --panel/--line theme vars above, since this card
+           style is a deliberate light accent moment against the
+           dark page, matching the reference design exactly.
+           ========================================================== */
+        .course-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-          gap: clamp(6px, 3vw, 26px);
+          gap: clamp(14px, 3vw, 26px);
         }
-        .course-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; transition: transform .25s ease, border-color .25s ease; }
-        .course-card:hover { transform: translateY(-6px); border-color: #4a4a4a; }
-        .thumb { position: relative; height: clamp(60px, 20vw, 180px); display: flex; align-items: flex-start; justify-content: space-between; padding: clamp(6px, 2.5vw, 16px); }
-        .tag { background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.25); color: var(--white); font-size: clamp(6.5px, 1.4vw, 11.5px); padding: clamp(2px,1vw,5px) clamp(5px,1.8vw,12px); border-radius: 999px; z-index: 2; align-self: flex-start; white-space: nowrap; }
-        .card-body { padding: clamp(6px,3vw,20px) clamp(6px,3vw,20px) clamp(8px,3.4vw,22px); }
-        .card-title { font-size: clamp(8.5px, 2vw, 16px); font-weight: 700; line-height: 1.3; margin-bottom: clamp(6px,2.5vw,16px); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-        .card-author { display: flex; align-items: center; gap: clamp(4px,1.5vw,10px); padding-bottom: clamp(6px,2.2vw,14px); margin-bottom: clamp(6px,2.2vw,14px); border-bottom: 1px solid var(--line); flex-wrap: nowrap; }
-        .avatar { width: clamp(16px,4.5vw,32px); height: clamp(16px,4.5vw,32px); border-radius: 50%; background: var(--panel-2); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: clamp(6.5px,1.4vw,11px); font-weight: 700; color: var(--grey); flex-shrink: 0; }
-        .author-name { font-size: clamp(7px, 1.7vw, 13.5px); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .author-role { font-size: clamp(6px, 1.4vw, 11.5px); color: var(--grey); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .card-footer { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
-        .student-count { font-size: clamp(6px, 1.3vw, 12px); color: var(--grey); white-space: nowrap; flex-shrink: 0; }
-        .enroll { font-size: clamp(6.5px, 1.5vw, 12.5px); font-weight: 700; color: var(--white); border-bottom: 1px solid var(--white); padding-bottom: 2px; white-space: nowrap; }
-        .enroll:hover { color: var(--grey); border-color: var(--grey); }
+        .course-card {
+          background: #ffffff;
+          border: none;
+          border-radius: 28px;
+          padding: clamp(8px, 2vw, 14px);
+          overflow: hidden;
+          box-shadow: 0 16px 32px rgba(0, 0, 0, 0.18);
+          transition: transform 0.25s ease, box-shadow 0.25s ease;
+          display: flex;
+          flex-direction: column;
+        }
+        .course-card:hover { transform: translateY(-6px); box-shadow: 0 22px 44px rgba(0, 0, 0, 0.26); }
+        .thumb {
+          position: relative;
+          height: clamp(90px, 20vw, 170px);
+          border-radius: 20px;
+          display: flex;
+          align-items: flex-start;
+          justify-content: flex-end;
+          padding: clamp(8px, 2.2vw, 14px);
+          flex-shrink: 0;
+        }
+        .tag {
+          background: rgba(255, 255, 255, 0.92);
+          backdrop-filter: blur(2px);
+          border: none;
+          color: #a5734c;
+          font-size: clamp(9px, 1.4vw, 12px);
+          font-weight: 600;
+          padding: clamp(4px, 1vw, 6px) clamp(9px, 1.8vw, 13px);
+          border-radius: 999px;
+          z-index: 2;
+          white-space: nowrap;
+          align-self: flex-start;
+        }
+        .card-body {
+          padding: clamp(12px, 3vw, 18px) clamp(4px, 1.5vw, 8px) clamp(4px, 1.5vw, 6px);
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+        }
+        .card-title {
+          font-size: clamp(13px, 2vw, 18px);
+          font-weight: 700;
+          line-height: 1.3;
+          color: #2b2320;
+          margin-bottom: clamp(10px, 2.5vw, 14px);
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+        }
+        .card-author {
+          display: flex;
+          align-items: center;
+          gap: clamp(6px, 1.5vw, 10px);
+          margin-bottom: clamp(12px, 3vw, 16px);
+          flex-wrap: nowrap;
+          min-width: 0;
+        }
+        .avatar {
+          width: clamp(24px, 5vw, 34px);
+          height: clamp(24px, 5vw, 34px);
+          border-radius: 50%;
+          background: #f1ddc9;
+          border: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: clamp(9px, 1.4vw, 12px);
+          font-weight: 700;
+          color: #a5734c;
+          flex-shrink: 0;
+        }
+        .author-name {
+  font-size: clamp(11px, 1.7vw, 14px);
+  font-weight: 600;
+  color: #2b2320;
+  white-space: normal;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+        .author-role {
+          font-size: clamp(9.5px, 1.4vw, 12.5px);
+          color: #9a938d;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .card-footer { margin-top: auto; }
+        .student-count {
+          background: #f1ddc9;
+          color: #a5734c;
+          font-size: clamp(9px, 1.3vw, 12px);
+          font-weight: 600;
+          padding: clamp(4px, 1vw, 6px) clamp(8px, 1.6vw, 12px);
+          border-radius: 999px;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .enroll {
+          display: block;
+          width: 100%;
+          box-sizing: border-box;
+          text-align: center;
+          background: #b98058;
+          color: #fff;
+          font-size: clamp(11px, 1.6vw, 15px);
+          font-weight: 600;
+          padding: clamp(10px, 2.2vw, 13px) 0;
+          border-radius: 16px;
+          border-bottom: none;
+          transition: background 0.2s ease, transform 0.08s ease;
+        }
+        .enroll:hover { color: #fff; background: #a5734c; }
+        .enroll:active { transform: scale(0.98); }
 
-        .p1 { background: radial-gradient(circle at 30% 20%, #3a3a3a, #0d0d0d 70%); }
-        .p2 { background: repeating-linear-gradient(115deg, #050505 0 10px, #1a1a1a 10px 20px); }
-        .p3 { background: linear-gradient(135deg, #d9d9d9, #8a8a8a 45%, #1a1a1a 100%); }
-        .p4 { background: radial-gradient(circle at 70% 70%, #e8e8e8, #4a4a4a 60%, #0a0a0a 100%); }
-        .p5 { background: linear-gradient(160deg, #232323, #050505); }
-        .p6 { background: conic-gradient(from 180deg at 50% 50%, #050505, #2c2c2c, #050505); }
+        .p1 { background: linear-gradient(135deg, #e8c39e, #b98058); }
+        .p2 { background: linear-gradient(135deg, #d9c7a3, #8f6b4a); }
+        .p3 { background: linear-gradient(135deg, #f1ddc9, #c99a6c); }
+        .p4 { background: linear-gradient(135deg, #e3b98c, #a5734c); }
+        .p5 { background: linear-gradient(135deg, #ecd2b0, #b3814f); }
+        .p6 { background: linear-gradient(135deg, #f4e2c8, #cf9c68); }
 
         :global(#gradAnim) { transition: opacity 0.25s ease, transform 0.25s ease; opacity: 1; transform: scale(1); }
         :global(#gradAnim.fade-out) { opacity: 0; transform: scale(0.92); }
 
         @media (max-width: 768px) {
           .course-grid {
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
           }
         }
       `}</style>

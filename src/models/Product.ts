@@ -19,7 +19,14 @@ const productSchema = new mongoose.Schema({
     ref: 'Seller',
     required: true
   },
-  quantity: { type: Number, default: 0, min: 0 },
+    quantity: { type: Number, default: 0, min: 0 },
+  salePrice: { type: Number, default: null }, // null = no active discount
+  paymentMethods: {
+    type: [String],
+    enum: ['cod', 'ecocash', 'paynow'],
+    default: ['cod', 'ecocash', 'paynow'], // existing products default to accepting everything
+  },
+  lowStockThreshold: { type: Number, default: 5 },
   segment: { type: String, enum: ['dealo', 'dealo-fresh'], default: 'dealo' }, // NEW
   createdAt: { type: Date, default: Date.now },
   country: { type: String, required: true },
@@ -27,6 +34,7 @@ location: {
   type: { type: String, enum: ['Point'], default: 'Point' },
   coordinates: { type: [Number], required: true },
 },
+  depositPercentage: { type: Number, default: null, min: 1, max: 99 }, // null = split payment not offered on this product
 });
 productSchema.index({ location: '2dsphere' });
 const Product = mongoose.models.Product || mongoose.model('Product', productSchema);

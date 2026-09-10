@@ -8,6 +8,8 @@ export interface Product {
     imageLink?: string;
   images?: string[];
   segment?: 'dealo' | 'dealo-fresh';
+    paymentMethods?: string[];
+  depositPercentage?: number | null;
   seller: {
     _id: string;
     businessName: string;
@@ -15,4 +17,5 @@ export interface Product {
     contact: string;
   };
   createdAt: Date;
+  salePrice?: number;  lowStockThreshold?: number;
 }
