@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import  connectToDatabase  from '@/lib/mongoose';
+import { connectToDB } from '@/lib/mongoose';
 import Product from '@/models/Product';
 
 export async function GET(req: NextRequest) {
   try {
-    await connectToDatabase();
+        await connectToDB();
     const q = req.nextUrl.searchParams.get('q')?.trim();
     if (!q || q.length < 2) return NextResponse.json({ products: [], categories: [] });
 
