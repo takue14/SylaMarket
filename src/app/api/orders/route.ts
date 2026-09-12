@@ -131,7 +131,8 @@ export async function POST(req: NextRequest) {
       depositAmount,
       balanceDue,
       paymentStatus: paymentMethod === 'cod' ? 'cod_pending' : depositAmount > 0 ? 'deposit_paid' : 'awaiting_payment',
-      estimatedMinutes: { type: Number, default: null }
+      //estimatedMinutes: { type: Number, default: null }
+     estimatedMinutes: null
     });
 
 
