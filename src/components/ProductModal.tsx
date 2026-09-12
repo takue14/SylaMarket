@@ -747,7 +747,7 @@ export default function ProductModal({ product, isOpen, onClose, onSelectRelated
               <RelatedRow>
                                 {related.map((r) => (
                   <RelatedCard key={r._id} onClick={() => onSelectRelated?.(r)}>
-                    <div className="rc-price">${r.price.toFixed(0)}$</div>
+                    <div className="rc-price">${r.price.toFixed(0)}</div>
                     <ImageCarousel
                       images={r.images?.length ? r.images : r.imageLink ? [r.imageLink] : []}
                       alt={r.productName}
