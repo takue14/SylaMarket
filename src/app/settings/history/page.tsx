@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Loader from '@/components/Loader';
+import Ac404 from '@/components/Ac404';
 
 interface ActivityItem {
   _id: string;
@@ -36,7 +37,7 @@ export default function ViewHistoryPage() {
       {loading ? (
         <p style={{ color: 'var(--text-muted)' }}><Loader/></p>
       ) : items.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)' }}>No browsing history yet.</p>
+        <Ac404/>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {items.map((item) => (

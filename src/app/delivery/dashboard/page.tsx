@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, type PointerEvent as ReactPointerEvent } f
 import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
 import LocationSettings from '@/components/LocationSettings';
+import Ac404 from '@/components/Ac404';
 
 interface OrderItem {
   productName: string;
@@ -718,7 +719,7 @@ export default function DeliveryDashboard() {
             <ContentPanel ref={(el) => {panelRefs.current[0] = el}}>
               <SectionTitle style={{ fontSize: 17 }}>Available Orders</SectionTitle>
               {availableOrders.length === 0 ? (
-                <EmptyState>No available orders right now.</EmptyState>
+                <Ac404/>
               ) : (
                 <OrderGrid>{availableOrders.map(renderCard)}</OrderGrid>
               )}

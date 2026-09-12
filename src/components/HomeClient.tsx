@@ -422,7 +422,7 @@ const [activeCategoryModal, setActiveCategoryModal] = useState<string | null>(nu
   const loadRecommendations = async () => {
     if (!customerId) return;
     try {
-      const res = await fetch(`http://127.0.0.1:5000/api/recommendations?user_id=${customerId}`);
+      const res = await fetch(`/api/recommendations?user_id=${customerId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.products?.length > 0) {

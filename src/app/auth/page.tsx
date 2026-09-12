@@ -330,7 +330,76 @@ const GoogleIcon = () => (
     />
   </svg>
 );
+/* ============================================================
+   Upload / Capture buttons — black variants of the reference design
+   ============================================================ */
 
+const PhotoIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={22} viewBox="0 0 24 24" height={22} fill="none" className="svg-icon">
+    <g strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" stroke="#fff">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="m21 15-5-5-9 9" />
+    </g>
+  </svg>
+);
+
+const CameraIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={22} viewBox="0 0 24 24" height={22} fill="none" className="svg-icon">
+    <g strokeWidth={2} strokeLinecap="round" stroke="#fff" fillRule="evenodd" clipRule="evenodd">
+      <path d="m4 9c0-1.10457.89543-2 2-2h2l.44721-.89443c.33879-.67757 1.03131-1.10557 1.78889-1.10557h3.5278c.7576 0 1.4501.428 1.7889 1.10557l.4472.89443h2c1.1046 0 2 .89543 2 2v8c0 1.1046-.8954 2-2 2h-12c-1.10457 0-2-.8954-2-2z" />
+      <path d="m15 13c0 1.6569-1.3431 3-3 3s-3-1.3431-3-3 1.3431-3 3-3 3 1.3431 3 3z" />
+    </g>
+  </svg>
+);
+
+function CaptureButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <CaptureButtonWrapper>
+      <button type="button" className="button" onClick={onClick}>
+        {icon}
+        <span className="lable">{label}</span>
+      </button>
+    </CaptureButtonWrapper>
+  );
+}
+
+const CaptureButtonWrapper = styled.div`
+  .button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 9px 12px;
+    gap: 8px;
+    height: 40px;
+    width: 100%;
+    max-width: 220px;
+    border: none;
+    background: #15141a; /* black */
+    border-radius: 20px;
+    cursor: pointer;
+  }
+  .lable {
+    line-height: 22px;
+    font-size: 14px;
+    color: #fff;
+    font-family: sans-serif;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .button:hover {
+    background: #000;
+  }
+  .button:hover .svg-icon {
+    animation: flickering 2s linear infinite;
+  }
+  @keyframes flickering {
+    0% { opacity: 1; } 50% { opacity: 1; } 52% { opacity: 1; }
+    54% { opacity: 0; } 56% { opacity: 1; } 90% { opacity: 1; }
+    92% { opacity: 0; } 94% { opacity: 1; } 96% { opacity: 0; }
+    98% { opacity: 1; } 99% { opacity: 0; } 100% { opacity: 1; }
+  }
+`;
 /* ============================================================
    Main component
    ============================================================ */
@@ -404,6 +473,11 @@ function AuthGateway() {
   const [ecocashNumber, setEcocashNumber] = useState('');
   const [idPhotoFile, setIdPhotoFile] = useState<File | null>(null);
   const [livePhotoFile, setLivePhotoFile] = useState<File | null>(null);
+  const idPhotoInputRef = useRef<HTMLInputElement | null>(null);
+
+const [cameraOpen, setCameraOpen] = useState(false);
+const liveVideoRef = useRef<HTMLVideoElement | null>(null);
+const liveStreamRef = useRef<MediaStream | null>(null);
   const [signupStep, setSignupStep] = useState<'form' | 'verify' | 'pending'>('form');
   const [signupOtp, setSignupOtp] = useState('');
   const [verifiedContact, setVerifiedContact] = useState('');
@@ -467,8 +541,9 @@ function AuthGateway() {
     resetFields();
   }
 
-  const searchParams = useSearchParams();
+    const searchParams = useSearchParams();
   const { addToCart, buyNow } = useCart();
+  const { notify } = useNotification();
 
   useEffect(() => {
     const googleError = searchParams.get('googleError');
@@ -485,10 +560,57 @@ function AuthGateway() {
     }
   }, [searchParams]);
 
-  
+    useEffect(() => {
+    if (cameraOpen && liveVideoRef.current && liveStreamRef.current) {
+      liveVideoRef.current.srcObject = liveStreamRef.current;
+      liveVideoRef.current.play().catch(() => {});
+    }
+  }, [cameraOpen]);
+
+
   function continueWithGoogle() {
     window.location.href = '/api/auth/google';
   }
+
+
+  async function openLiveCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+    });
+    liveStreamRef.current = stream;
+    setCameraOpen(true);
+    // Attachment now happens in the useEffect above, which fires
+    // after React has actually mounted the <video> element — the
+    // setTimeout(...,0) approach raced the DOM update and silently
+    // failed most of the time, producing a blank camera view.
+  } catch (err) {
+    console.error('Camera access denied or unavailable:', err);
+    setError('Camera access is required to take a live photo.');
+  }
+}
+
+function stopLiveCamera() {
+  liveStreamRef.current?.getTracks().forEach((t) => t.stop());
+  liveStreamRef.current = null;
+  setCameraOpen(false);
+}
+
+function captureLivePhoto() {
+  const video = liveVideoRef.current;
+  if (!video) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d')?.drawImage(video, 0, 0);
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const file = new File([blob], `live-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    setLivePhotoFile(file);
+    stopLiveCamera();
+  }, 'image/jpeg', 0.9);
+}
+
 
  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -633,7 +755,6 @@ function AuthGateway() {
         }
 
         setSuccess('Signed in — redirecting…');
-        const { notify } = useNotification();
         notify('Welcome back!', 'success');
         setTimeout(() => router.push(loginCfg.redirectAfterLogin), 600);
       } else {
@@ -1005,7 +1126,7 @@ function AuthGateway() {
               ) : (
                 <form className="auth-form is-active" onSubmit={handleSubmit} noValidate>
                   <h2>Create account</h2>
-                  <p className="form-sub">Free to start. Upgrade any time for unlimited messages.</p>
+                  <p className="form-sub">Get started with Premium services</p>
 
                   {error && <p className="alert-msg alert-msg--error">{error}</p>}
                   {success && <p className="alert-msg alert-msg--success">{success}</p>}
@@ -1042,30 +1163,35 @@ function AuthGateway() {
                     />
                   )}
                   {(role === 'seller' || role === 'delivery') && (
-                    <>
-                      <label className="upload-field">
-                        <span>ID photo (front, clearly visible)</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          required
-                          onChange={(e) => setIdPhotoFile(e.target.files?.[0] ?? null)}
-                        />
-                        {idPhotoFile && <span style={{ fontSize: 11 }}>Selected: {idPhotoFile.name}</span>}
-                      </label>
-                      <label className="upload-field">
-                        <span>Live photo (selfie, taken now)</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="user"
-                          required
-                          onChange={(e) => setLivePhotoFile(e.target.files?.[0] ?? null)}
-                        />
-                        {livePhotoFile && <span style={{ fontSize: 11 }}>Selected: {livePhotoFile.name}</span>}
-                      </label>
-                    </>
-                  )}
+  <>
+    <div className="upload-field">
+      <span>ID photo (front, clearly visible)</span>
+      <input
+        ref={idPhotoInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={(e) => setIdPhotoFile(e.target.files?.[0] ?? null)}
+      />
+      <CaptureButton
+        icon={<PhotoIcon />}
+        label={idPhotoFile ? 'Change ID photo' : 'Upload ID Photo'}
+        onClick={() => idPhotoInputRef.current?.click()}
+      />
+      {idPhotoFile && <span style={{ fontSize: 11 }}>Selected: {idPhotoFile.name}</span>}
+    </div>
+
+    <div className="upload-field">
+      <span>Live photo (selfie, taken now)</span>
+      <CaptureButton
+        icon={<CameraIcon />}
+        label={livePhotoFile ? 'Retake Photo' : 'Take a Photo'}
+        onClick={openLiveCamera}
+      />
+      {livePhotoFile && <span style={{ fontSize: 11 }}>Captured ✓</span>}
+    </div>
+  </>
+)}
 
                   
 
@@ -1119,6 +1245,23 @@ function AuthGateway() {
             </div>
           </div>
         </div>
+
+        {cameraOpen && (
+  <CameraOverlay>
+    <video ref={liveVideoRef} autoPlay playsInline muted />
+    <div className="camera-actions">
+      <button type="button" className="btn btn--solid" onClick={captureLivePhoto}>
+        Capture
+      </button>
+      <button type="button" className="btn btn--outline" onClick={stopLiveCamera}>
+        Cancel
+      </button>
+    </div>
+  </CameraOverlay>
+)}
+
+
+
       </Phone>
     </PageWrapper>
   );
@@ -1377,7 +1520,8 @@ const Phone = styled.div`
 
   .sheet-panel {
     width: 100%;
-    max-height: 88%;
+    min-height: 100%;
+    max-height: 100%;
     background: var(--sheet-bg);
     backdrop-filter: blur(18px);
     border-top-left-radius: var(--sheet-radius);
@@ -1713,6 +1857,31 @@ const Phone = styled.div`
     .jelly-triangle__img-track {
       transition-duration: 0.01ms !important;
     }
+  }
+`;
+
+
+const CameraOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+
+  video {
+    width: 100%;
+    max-height: 70%;
+    object-fit: cover;
+    transform: scaleX(-1); /* mirror selfie view */
+  }
+
+  .camera-actions {
+    display: flex;
+    gap: 12px;
   }
 `;
 

@@ -466,7 +466,7 @@ export default function Header() {
           ♥ Wishlist
         </Link>
         <Link href="/settings/history" className="menuButton" onClick={() => setIsMenuOpen(false)}>
-          🕘 View History
+           👁️‍🗨️ View History
         </Link>
 
         

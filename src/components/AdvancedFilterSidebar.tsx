@@ -17,7 +17,6 @@ interface FilterProps {
   onClearFilters: () => void;
 }
 
-const categories = ['Electronics', 'Fashion', 'Home', 'Music', 'Books', 'Sports', 'Beauty'];
 
 interface SuggestProduct {
   _id: string;
@@ -39,9 +38,23 @@ export default function AdvancedFilterSidebar({
   onClearFilters,
 }: FilterProps) {
 
-    const [showSuggestions, setShowSuggestions] = useState(false);
+     const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestProducts, setSuggestProducts] = useState<SuggestProduct[]>([]);
   const [suggestCategories, setSuggestCategories] = useState<string[]>([]);
+
+  const [categories, setCategories] = useState<string[]>([]);
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const CATEGORY_VISIBLE_LIMIT = 7;
+
+  useEffect(() => {
+    fetch('/api/categories')
+      .then((res) => res.json())
+      .then((data) => setCategories(data.categories || []))
+      .catch(() => {});
+  }, []);
+
+  const visibleCategories = showAllCategories ? categories : categories.slice(0, CATEGORY_VISIBLE_LIMIT);
+
 
   useEffect(() => {
     if (!searchQuery.trim() || searchQuery.trim().length < 2) {
@@ -151,8 +164,8 @@ export default function AdvancedFilterSidebar({
           </defs>
         </svg>
 
-        <div className="category-list">
-          {categories.map((cat, index) => {
+                <div className="category-list">
+          {visibleCategories.map((cat, index) => {
             const checkboxId = `cbx-12-${index}`;
             return (
               <div key={cat} className="category-item">
@@ -175,6 +188,16 @@ export default function AdvancedFilterSidebar({
             );
           })}
         </div>
+
+        {categories.length > CATEGORY_VISIBLE_LIMIT && (
+          <button
+            type="button"
+            className="view-more-categories"
+            onClick={() => setShowAllCategories((v) => !v)}
+          >
+            {showAllCategories ? 'Show less' : `View ${categories.length - CATEGORY_VISIBLE_LIMIT} more`}
+          </button>
+        )}
       </div>
 
       {/* Price Range */}
@@ -354,6 +377,18 @@ const FilterContainer = styled.div`
     color: var(--text-primary);
   }
 
+    .view-more-categories {
+    background: none;
+    border: none;
+    color: #7c3aed;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 0 0;
+    text-align: left;
+  }
+
+  
   /* ========== EXACT GOOEY CHECKBOX DESIGN (preserved) ========== */
   .checkbox-wrapper-12 {
     position: relative;

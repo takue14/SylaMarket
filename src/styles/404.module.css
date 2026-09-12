@@ -25,7 +25,6 @@
   background-color: #f27405;
   margin-bottom: -6em;
   margin-left: 0em;
-  z-index: -1;
   align-self: center;
 }
 
@@ -485,6 +484,7 @@
   align-items: center;
   justify-content: center;
   column-gap: 8.7em;
+  z-index: 3;
 }
 
 .base1 {

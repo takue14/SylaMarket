@@ -47,7 +47,6 @@ export default function RootLayout({
               <div style={{ paddingTop: 'var(--header-height)' }}>
                 {children}
               </div>
-              <Footer />
               <MobileBottomBar />
               <OfflineBanner />
             </ProductProvider>

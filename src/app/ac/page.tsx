@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
+import AC404 from '@/components/Ac404';
+
 
 type ListingType = 'scholarship' | 'job' | 'enrollment';
 
@@ -140,8 +142,8 @@ export default function AcademicPage() {
 
           <div className="course-grid">
             {filtered.length === 0 ? (
-              <p style={{ gridColumn: '1 / -1', color: 'var(--grey)', textAlign: 'center', padding: '40px 0' }}>
-                No listings yet — check back soon.
+              <p>
+               <AC404/>
               </p>
             ) : (
               filtered.map((l, i) => (

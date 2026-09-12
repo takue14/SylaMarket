@@ -694,10 +694,10 @@ export default function SellerDashboard() {
                 <div style={{ flex: 1 }}>
                   <h4 style={{ marginBottom: '6px' }}>{product.productName}</h4>
 
-                  <p style={{ color: '#999', fontSize: '13px', marginBottom: '8px' }}>{product.category}</p>
+                  <p style={{ color: '#999', fontSize: '13px', marginBottom: '8px' }}>{product.category} <strong style={{paddingRight: '10px',color:'black'}}>${product.price}</strong></p>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <strong style={{paddingRight: '10px'}}>${product.price}</strong>
+                    
 
                     {/* ── Quantity counter (added back) ── */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -720,7 +720,7 @@ export default function SellerDashboard() {
                         value={product.quantity}
                         onChange={e => updateQuantity(product._id, parseInt(e.target.value) || 0)}
                         style={{
-                          width: '60px',
+                          width: '40px',
                           textAlign: 'center',
                           padding: '4px',
                           borderRadius: '6px',

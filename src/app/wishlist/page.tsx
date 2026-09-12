@@ -6,6 +6,7 @@ import ProductCard from '@/components/ProductCard';
 import ProductModal from '@/components/ProductModal';
 import { Product } from '@/types/product';
 import Loader from '@/components/Loader';
+import Ac404 from '@/components/Ac404';
 
 export default function WishlistPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -46,20 +47,13 @@ export default function WishlistPage() {
       {loading ? (
         <p style={{ color: 'var(--text-muted)' }}><Loader/></p>
       ) : products.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)' }}>Nothing saved yet — tap the heart on any product to add it here.</p>
+        <Ac404/>
       ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {products.map((p) => (
             <div key={p._id}>
               <ProductCard product={p} onClick={() => setSelected(p)} />
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', marginTop: 6, paddingLeft: 4 }}>
-                <input
-                  type="checkbox"
-                  checked={notifyPrefs[p._id] ?? true}
-                  onChange={(e) => updateNotifyPref(p._id, e.target.checked)}
-                />
-                Notify me if back in stock
-              </label>
+              
             </div>
           ))}
         </div>
