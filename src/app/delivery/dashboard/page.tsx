@@ -128,8 +128,8 @@ const BalanceLabel = styled.span`
 `;
 
 const BalanceBadge = styled.div`
-  background: #fff;
-  color: var(--ink);
+  background: #939191;
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 700;
   padding: 7px 12px;
@@ -637,8 +637,8 @@ export default function DeliveryDashboard() {
             {/* ---- Slide 1: Available ---- */}
             <BalanceCard>
               <BalanceTop>
-                <BalanceIcon>📦</BalanceIcon>
-                <BalanceBadge>available</BalanceBadge>
+                <BalanceIcon>$</BalanceIcon>
+                <BalanceBadge>Available</BalanceBadge>
               </BalanceTop>
               <BalanceInfo>
                 <BalanceLabel>Orders waiting to be claimed</BalanceLabel>
@@ -659,8 +659,8 @@ export default function DeliveryDashboard() {
             {/* ---- Slide 2: My Orders ---- */}
             <BalanceCard>
               <BalanceTop>
-                <BalanceIcon>🚚</BalanceIcon>
-                <BalanceBadge>my orders</BalanceBadge>
+                <BalanceIcon>$</BalanceIcon>
+                <BalanceBadge>My Orders</BalanceBadge>
               </BalanceTop>
               <BalanceInfo>
                 <BalanceLabel>Orders you're handling</BalanceLabel>

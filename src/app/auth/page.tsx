@@ -1240,6 +1240,7 @@ function captureLivePhoto() {
                       Sign in
                     </button>
                   </p>
+                  <div className='spacer'>.</div>
                 </form>
               )}
             </div>
@@ -1383,7 +1384,7 @@ const Phone = styled.div`
     flex-shrink: 0;
     display: flex;
     justify-content: center;
-    padding-top: clamp(28px, 7dvh, 60px);
+    padding-top: clamp(8px, 3dvh, 20px);
     z-index: 30;
   }
 
@@ -1422,7 +1423,10 @@ const Phone = styled.div`
     margin: 4px 0 10px;
     letter-spacing: -0.01em;
   }
+.start-screen h1{
+color: var(--text-primary);
 
+}
   .start-screen p.subtitle {
     color: var(--ink-dim);
     font-size: 14.5px;
@@ -1520,18 +1524,19 @@ const Phone = styled.div`
 
   .sheet-panel {
     width: 100%;
-    min-height: 100%;
-    max-height: 100%;
+    min-height: 105%;
+    max-height: 105%;
     background: var(--sheet-bg);
     backdrop-filter: blur(18px);
     border-top-left-radius: var(--sheet-radius);
     border-top-right-radius: var(--sheet-radius);
     border-top: 1px solid var(--line);
     box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.12);
-    padding: 18px 24px calc(24px + env(safe-area-inset-bottom));
+    padding: 18px 24px calc(14px + env(safe-area-inset-bottom));
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    margin-bottom: -4px; /* hide the sheet's bottom border behind the phone bezel */
   }
 
   .sheet-grabber {
@@ -1693,6 +1698,7 @@ const Phone = styled.div`
     font-size: 13.5px;
     color: var(--ink-dim);
     margin-top: 4px;
+    
   }
   .switch-line button {
     background: none;
@@ -1703,6 +1709,10 @@ const Phone = styled.div`
     cursor: pointer;
     font-size: 13.5px;
     padding: 0;
+  }
+
+  .spacer{
+    height: 200px;
   }
 
   /* ---------- OTP panel (forgot password) ---------- */

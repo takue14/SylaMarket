@@ -448,7 +448,7 @@ export default function Header() {
         </button>
 
         {/* FIX 6: Replaced invalid <Link href=""> with a <button> for the Admin long-press action */}
-        <button
+        {/*<button
           className="menuButton"
           onMouseDown={startPress}
           onMouseUp={endPress}
@@ -457,7 +457,7 @@ export default function Header() {
           onTouchEnd={endPress}
         >
           <FaUserShield />Admin
-        </button>
+        </button>*/}
 
         <Link href="/credits" className="menuButton" onClick={() => setIsMenuOpen(false)}><FaCoins />Credits</Link>
                

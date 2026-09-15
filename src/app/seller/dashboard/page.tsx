@@ -102,6 +102,7 @@ const BalanceTop = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
+  color:var(--text-primary);
 `;
 
 const BalanceInfo = styled.div`
@@ -129,8 +130,8 @@ const BalanceLabel = styled.span`
 `;
 
 const BalanceBadge = styled.div`
-  background: #fff;
-  color: var(--ink);
+  background: #959595;
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 700;
   padding: 7px 12px;
@@ -264,7 +265,7 @@ const ActionBtn = styled.button`
   padding: 16px 10px;
   font-size: 14.5px;
   font-weight: 700;
-  color: var(--ink);
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -288,7 +289,7 @@ const CircleIcon = styled.span`
   height: 22px;
   border-radius: 50%;
   background: var(--ink);
-  color: #fff;
+  color: #7b7979;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -604,7 +605,6 @@ export default function SellerDashboard() {
 
               <ChipGrid>
                                 <Chip $variant="red">
-                  <ChipIcon>💰</ChipIcon>
                   <div>
                     <ChipValue>${totalListedValue.toFixed(0)}</ChipValue>
                     <br />
@@ -694,7 +694,7 @@ export default function SellerDashboard() {
                 <div style={{ flex: 1 }}>
                   <h4 style={{ marginBottom: '6px' }}>{product.productName}</h4>
 
-                  <p style={{ color: '#999', fontSize: '13px', marginBottom: '8px' }}>{product.category} <strong style={{paddingRight: '10px',color:'black'}}>${product.price}</strong></p>
+                  <p style={{ color: '#999', fontSize: '13px', marginBottom: '8px' }}>{product.category} <strong style={{paddingRight: '10px',color:'var(--text-primary)'}}>${product.price}</strong></p>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     
