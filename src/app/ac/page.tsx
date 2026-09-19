@@ -118,11 +118,11 @@ export default function AcademicPage() {
             <span className="p-arrow">&#8249;</span>
             <span className="partners-label">Our Course Partners</span>
             <div className="partners-list">
-              <span>&#9673; HubSpot</span>
-              <span>&#10038; loom</span>
+              <span>&#9673; LinkedIn</span>
+              <span>&#10038; Work</span>
               <span>&#9670; GitLab</span>
-              <span>&#128172; LiveChat</span>
-              <span>&#9642; monday.com</span>
+              <span>&#128172; Glassgoor</span>
+              <span>&#9642; DealoAc</span>
             </div>
             <span className="p-arrow">&#8250;</span>
           </div>

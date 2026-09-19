@@ -129,6 +129,7 @@ const HamburgerButton = styled.button`
     font-size: 24px;
     color: var(--text-primary);
     z-index: 1000;
+    margin-left: -12px;
   }
 `;
 
