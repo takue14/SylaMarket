@@ -5,6 +5,7 @@ import Product from '@/models/Product';
 import { Seller } from '@/models/Seller';
 import cloudinary from '@/lib/cloudinary';
 import type { UploadApiResponse } from 'cloudinary';
+import { getSession } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,11 +19,15 @@ export async function POST(req: NextRequest) {
     const category = formData.get('category') as string;
     const description = formData.get('description') as string;
     const quantity = parseInt(formData.get('quantity') as string) || 0;
-    const sellerId = formData.get('sellerId') as string;
+        const session = await getSession('seller');
+    if (!session) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    const sellerId = session.id; // never trust a client-supplied sellerId
     const segmentRaw = formData.get('segment') as string | null;
     const segment = segmentRaw === 'dealo-fresh' ? 'dealo-fresh' : 'dealo';
 
-    if (!productName || !price || !category || !sellerId) {
+    if (!productName || !price || !category ) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
@@ -35,6 +40,19 @@ export async function POST(req: NextRequest) {
     }
 
        const validFiles = files.filter((f) => f && f.size > 0);
+
+           const MAX_FILE_BYTES = 8 * 1024 * 1024;
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+    for (const file of validFiles) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        return NextResponse.json({ message: 'Only JPEG, PNG, or WebP images are allowed.' }, { status: 400 });
+      }
+      if (file.size > MAX_FILE_BYTES) {
+        return NextResponse.json({ message: 'Each image must be under 8MB.' }, { status: 400 });
+      }
+    }
+
+
     if (validFiles.length === 0) {
       return NextResponse.json({ message: 'At least one product image is required.' }, { status: 400 });
     }
@@ -88,7 +106,7 @@ export async function GET(req: NextRequest) {
     const category = searchParams.get('category') || 'All';
     const search = searchParams.get('search') || '';
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = 10000;
+        const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const segment = searchParams.get('segment');
     const lat = parseFloat(searchParams.get('lat') || '');
     const lng = parseFloat(searchParams.get('lng') || '');
@@ -97,18 +115,20 @@ export async function GET(req: NextRequest) {
     const query: Record<string, unknown> = {};
     if (category !== 'All') query.category = category;
     if (segment === 'dealo' || segment === 'dealo-fresh') query.segment = segment;
-    if (search) {
+        if (search) {
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.$or = [
-        { productName: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
+        { productName: { $regex: escaped, $options: 'i' } },
+        { description: { $regex: escaped, $options: 'i' } },
       ];
     }
+
     if (country) query.country = country;
 
     let products;
 
     if (!isNaN(lat) && !isNaN(lng)) {
-      products = await Product.aggregate([
+            products = await Product.aggregate([
         {
           $geoNear: {
             near: { type: 'Point', coordinates: [lng, lat] },
@@ -125,13 +145,22 @@ export async function GET(req: NextRequest) {
             localField: 'seller',
             foreignField: '_id',
             as: 'seller',
+            pipeline: [
+              { $project: { businessName: 1, name: 1, contact: 1 } },
+            ],
           },
         },
         { $unwind: '$seller' },
+        // Never expose exact coordinates in public product listings —
+        // distance is already computed server-side above; the raw
+        // location itself has no legitimate public use case.
+        { $project: { location: 0, 'seller.location': 0 } },
       ]);
-    } else {
+      
+        } else {
       products = await Product.find(query)
-        .populate('seller', 'businessName name contact')
+        .select('-location') // never expose exact coordinates publicly
+        .populate('seller', 'businessName name')
         .skip((page - 1) * limit)
         .limit(limit)
         .sort({ createdAt: -1 });

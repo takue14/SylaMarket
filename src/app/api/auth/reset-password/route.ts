@@ -6,7 +6,11 @@ import Customer from '@/models/Customer';
 import DeliveryGuy from '@/models/DeliveryGuy';
 import { verifyOtp } from '@/lib/otpService';
 
-const ROLE_LOOKUP: Record<string, { model: any; field: string }> = {
+interface RoleLookupModel {
+  findOneAndUpdate: (query: Record<string, unknown>, update: Record<string, unknown>) => Promise<unknown>;
+}
+
+const ROLE_LOOKUP: Record<string, { model: RoleLookupModel; field: string }> = {
   buyer: { model: Customer, field: 'email' },
   seller: { model: Seller, field: 'contact' },
   delivery: { model: DeliveryGuy, field: 'contact' },

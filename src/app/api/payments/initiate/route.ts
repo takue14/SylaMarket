@@ -22,8 +22,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'This order is set to pay on delivery.' }, { status: 400 });
     }
 
-        const paynow = getPaynowClient();
-    const payment = paynow.createPayment(`order-${order._id.toString().slice(-8)}`, order.contact);
+           const paynow = getPaynowClient();
+    const merchantReference = `order-${order._id.toString().slice(-8)}`;
+    const payment = paynow.createPayment(merchantReference, order.contact);
 
     if (order.isSplitPayment && order.depositAmount > 0) {
       // Charge only the deposit now — the balance is collected on delivery,
@@ -48,7 +49,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Failed to initiate payment with Paynow.' }, { status: 502 });
     }
 
-    order.paymentReference = response.pollUrl;
+        order.paymentReference = merchantReference;
+    order.pollUrl = response.pollUrl;
     await order.save();
 
     return NextResponse.json({

@@ -4,7 +4,7 @@ import { connectToDB } from '@/lib/mongoose';
 import DeliveryGuy from '@/models/DeliveryGuy';
 import cloudinary from '@/lib/cloudinary';
 import { issueOtp, isEmail } from '@/lib/otpService';
-import { checkRateLimit } from '@/lib/rateLimit';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import { normalizePhone } from '@/lib/phone';
 
 export const runtime = 'nodejs';
@@ -22,7 +22,7 @@ async function uploadToCloudinary(file: File, folder: string): Promise<string> {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
+        const ip = getClientIp(req);
     const rate = await checkRateLimit({
       key: `register:delivery:ip:${ip}`,
       maxAttempts: 5,
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       uploadToCloudinary(livePhoto, 'dealo/delivery-kyc/live'),
     ]);
 
-    await DeliveryGuy.findOneAndUpdate(
+      const savedDeliveryGuy = await DeliveryGuy.findOneAndUpdate(
       { contact },
       {
         name,
@@ -96,8 +96,10 @@ export async function POST(req: NextRequest) {
       { upsert: true, new: true }
     );
 
-    await issueOtp(contact, 'signup-verify').catch((err) => console.error('signup OTP send failed:', err));
+    await issueOtp(contact, 'signup-verify', `delivery:${contact}`, { accountId: savedDeliveryGuy!._id.toString(), role: 'delivery' })
+      .catch((err) => console.error('signup OTP send failed:', err));
 
+      
     return NextResponse.json({ message: 'Account created. Enter the code we sent to verify your contact.' }, { status: 201 });
   } catch (err) {
     console.error('Delivery registration error:', err);

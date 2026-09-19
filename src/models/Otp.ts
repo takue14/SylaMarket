@@ -9,6 +9,8 @@ export interface OtpDoc extends Document {
   expiresAt: Date;
   attempts: number;
   consumed: boolean;
+  accountId?: string;
+  role?: string;
 }
 
 const OtpSchema = new Schema<OtpDoc>(
@@ -19,11 +21,13 @@ const OtpSchema = new Schema<OtpDoc>(
     expiresAt: { type: Date, required: true },
     attempts: { type: Number, default: 0 },
     consumed: { type: Boolean, default: false },
+    accountId: { type: String },
+    role: { type: String },
   },
   { timestamps: true }
 );
 
 OtpSchema.index({ identifier: 1, purpose: 1 }, { unique: true });
-OtpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 }); // housekeeping only
+OtpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 });
 
 export const Otp: Model<OtpDoc> = mongoose.models.Otp || mongoose.model<OtpDoc>('Otp', OtpSchema);

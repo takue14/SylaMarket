@@ -4,7 +4,7 @@ import { connectToDB } from '@/lib/mongoose';
 import { Seller } from '@/models/Seller';
 import cloudinary from '@/lib/cloudinary';
 import { issueOtp } from '@/lib/otpService';
-import { checkRateLimit } from '@/lib/rateLimit';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs'; // bcrypt + cloudinary SDK need Node runtime, not edge
 
@@ -21,7 +21,7 @@ async function uploadToCloudinary(file: File, folder: string): Promise<string> {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
+    const ip = getClientIp(req);
     const rate = await checkRateLimit({
       key: `register:seller:ip:${ip}`,
       maxAttempts: 5,
@@ -79,7 +79,7 @@ if (!country || isNaN(lat) || isNaN(lng)) {
       uploadToCloudinary(livePhoto, 'dealo/seller-kyc/live'),
     ]);
 
-    await Seller.findOneAndUpdate(
+       const savedSeller = await Seller.findOneAndUpdate(
       { contact },
       {
         name,
@@ -93,13 +93,15 @@ if (!country || isNaN(lat) || isNaN(lng)) {
         verificationStatus: 'pending',
         rejectionReason: undefined,
         country,
-location: { type: 'Point', coordinates: [lng, lat] },
+        location: { type: 'Point', coordinates: [lng, lat] },
       },
       { upsert: true, new: true }
     );
 
-    await issueOtp(contact, 'signup-verify').catch((err) => console.error('signup OTP send failed:', err));
+    await issueOtp(contact, 'signup-verify', `seller:${contact}`, { accountId: savedSeller!._id.toString(), role: 'seller' })
+      .catch((err) => console.error('signup OTP send failed:', err));
 
+      
     return NextResponse.json({ message: 'Account created. Enter the code we sent to verify your contact.' }, { status: 201 });
   } catch (err) {
     console.error('Seller registration error:', err);

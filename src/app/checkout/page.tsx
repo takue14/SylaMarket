@@ -49,7 +49,8 @@ export default function Checkout() {
       .then((res) => res.json())
       .then((data) => {
         setSavedAddresses(data || []);
-        const def = data?.find((a: any) => a.isDefault);
+        interface SavedAddress { _id: string; label: string; fullAddress: string; contact: string; isDefault: boolean }
+const def = (data as SavedAddress[])?.find((a) => a.isDefault);
         if (def) {
           setLocation(def.fullAddress);
           setContact(def.contact);

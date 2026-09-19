@@ -8,7 +8,8 @@ export async function GET(req: NextRequest) {
     const q = req.nextUrl.searchParams.get('q')?.trim();
     if (!q || q.length < 2) return NextResponse.json({ products: [], categories: [] });
 
-    const regex = new RegExp(q, 'i');
+        const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'i');
 
     const [products, categories] = await Promise.all([
       Product.find({ productName: regex }).select('productName imageLink price').limit(6),

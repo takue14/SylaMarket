@@ -6,6 +6,7 @@ import { issueOtp } from '@/lib/otpService';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { signSession, sessionCookieName, sessionCookieOptions } from '@/lib/jwt';
 import { trustedDeviceCookieName, verifyTrustedDevice } from '@/lib/trustedDevice';
+import { getClientIp } from '@/lib/rateLimit';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
     }
     const normalized = email.toLowerCase().trim();
 
-    const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
+        const ip = getClientIp(req);
     const rateIp = await checkRateLimit({ key: `login:customer:ip:${ip}`, maxAttempts: 10, windowSeconds: 3600, blockSeconds: 3600 });
     const rateId = await checkRateLimit({ key: `login:customer:id:${normalized}`, maxAttempts: 8, windowSeconds: 3600, blockSeconds: 3600 });
     if (!rateIp.allowed || !rateId.allowed) {
@@ -51,7 +52,8 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    await issueOtp(normalized, 'login-verify').catch((err) => console.error('login OTP send failed:', err));
+              await issueOtp(normalized, 'login-verify', `buyer:${normalized}`, { accountId: customer._id.toString(), role: 'buyer' })
+      .catch((err) => console.error('login OTP send failed:', err));
     return NextResponse.json({
       message: 'Enter the code we sent to finish signing in.',
       requiresOtp: true,

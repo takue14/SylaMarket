@@ -76,9 +76,9 @@ export default function SellerUpload() {
 
       notify('Product uploaded successfully!', 'success');
       router.push('/seller/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong. Please try again.');
-    } finally {
+    } catch (err) {
+  setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+} finally {
       setUploading(false);
     }
   };

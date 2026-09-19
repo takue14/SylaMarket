@@ -11,9 +11,10 @@ export async function POST(req: NextRequest) {
     if (!role || !contact || !code || !(role in ROLE_REGISTRY)) {
       return NextResponse.json({ message: 'Role, contact, and code are required.' }, { status: 400 });
     }
-    const entry = ROLE_REGISTRY[role as AuthRole];
 
-    const result = await verifyOtp(contact, 'login-verify', code);
+    const normalized = contact.trim().toLowerCase();
+    const result = await verifyOtp(contact, 'login-verify', code, `${role}:${normalized}`);
+
     if (!result.valid) {
       const messages: Record<string, string> = {
         not_found: 'No login attempt found for this contact. Please sign in again.',
@@ -24,20 +25,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: messages[result.reason] }, { status: 400 });
     }
 
+    // The account and role that actually gets signed in come from what was
+    // bound to the OTP record at issuance (a real DB lookup at that time),
+    // never from the client-supplied `role` — this is what prevents a code
+    // issued for one role/account being redeemed as a different one, even
+    // if the same contact exists across multiple role collections.
+    if (!result.accountId || !result.role) {
+      return NextResponse.json({ message: 'This code is not valid for a login session.' }, { status: 400 });
+    }
+
+    const boundEntry = ROLE_REGISTRY[result.role as AuthRole];
+    if (!boundEntry) return NextResponse.json({ message: 'Invalid account role.' }, { status: 400 });
+
     await connectToDB();
-    const normalized = contact.trim().toLowerCase();
-    const user = await entry.model.findOne({ [entry.contactField]: normalized });
+    const user = await boundEntry.model.findById(result.accountId);
     if (!user) return NextResponse.json({ message: 'Account not found.' }, { status: 404 });
 
-    const token = await signSession({ id: user._id.toString(), role: entry.sessionRole });
-    const trustToken = await signTrustedDevice({ contact: normalized, role: entry.sessionRole });
+    if (
+      (result.role === 'seller' || result.role === 'delivery') &&
+      (user as { verificationStatus?: string }).verificationStatus !== 'approved'
+    ) {
+      return NextResponse.json({ message: 'Your account is no longer approved to sign in.' }, { status: 403 });
+    }
+
+    const token = await signSession({ id: user._id.toString(), role: boundEntry.sessionRole });
+    const trustToken = await signTrustedDevice({ contact: normalized, role: boundEntry.sessionRole });
 
     const response = NextResponse.json({
       message: 'Signed in.',
-      [entry.idKey]: user._id.toString(),
+      [boundEntry.idKey]: user._id.toString(),
     });
-    response.cookies.set(sessionCookieName(entry.sessionRole), token, sessionCookieOptions(entry.sessionRole));
-    response.cookies.set(trustedDeviceCookieName(entry.sessionRole), trustToken, trustedDeviceCookieOptions());
+    response.cookies.set(sessionCookieName(boundEntry.sessionRole), token, sessionCookieOptions(boundEntry.sessionRole));
+    response.cookies.set(trustedDeviceCookieName(boundEntry.sessionRole), trustToken, trustedDeviceCookieOptions());
     return response;
   } catch (err) {
     console.error('verify-login-otp error:', err);

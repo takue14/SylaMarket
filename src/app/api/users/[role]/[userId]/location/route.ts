@@ -6,11 +6,30 @@ import DeliveryGuy from '@/models/DeliveryGuy';
 import { getSession } from '@/lib/session';
 import type { Role } from '@/lib/jwt';
 
-const ROLE_MODELS: Record<string, any> = {
-  seller: Seller,
-  buyer: Customer,
-  delivery: DeliveryGuy,
+interface LocationDoc {
+  country?: string;
+  location?: { coordinates: [number, number] };
+}
+
+interface RoleLookupModel {
+  findById: (id: string) => {
+    select: (fields: string) => Promise<LocationDoc | null>;
+  };
+  findByIdAndUpdate: (
+    id: string,
+    update: Record<string, unknown>,
+    options: Record<string, unknown>
+  ) => {
+    select: (fields: string) => Promise<LocationDoc | null>;
+  };
+}
+
+const ROLE_MODELS: Record<string, RoleLookupModel> = {
+  buyer: Customer as unknown as RoleLookupModel,
+  seller: Seller as unknown as RoleLookupModel,
+  delivery: DeliveryGuy as unknown as RoleLookupModel,
 };
+
 const SESSION_ROLE_MAP: Record<string, Role> = {
   seller: 'seller',
   buyer: 'customer',
@@ -71,11 +90,13 @@ export async function PATCH(
     }
 
     await connectToDB();
-    const updated = await model.findByIdAndUpdate(
-      userId,
-      { country: country.trim(), location: { type: 'Point', coordinates: [lng, lat] } },
-      { new: true }
-    ).select('country location');
+    const updated = await model
+      .findByIdAndUpdate(
+        userId,
+        { country: country.trim(), location: { type: 'Point', coordinates: [lng, lat] } },
+        { new: true }
+      )
+      .select('country location');
 
     if (!updated) return NextResponse.json({ message: 'Account not found.' }, { status: 404 });
 

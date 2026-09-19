@@ -5,10 +5,16 @@ import Customer from '@/models/Customer';
 import DeliveryGuy from '@/models/DeliveryGuy';
 import { issueOtp } from '@/lib/otpService';
 import { checkRateLimit } from '@/lib/rateLimit';
+import mongoose from 'mongoose';
 
 const GENERIC_MESSAGE = "If an account with that contact exists, we've sent a verification code.";
 
-const ROLE_LOOKUP: Record<string, { model: any; field: string }> = {
+interface RoleLookupModel {
+  findOne: (query: Record<string, unknown>) => Promise<unknown>;
+  findOneAndUpdate: (query: Record<string, unknown>, update: Record<string, unknown>) => Promise<unknown>;
+}
+
+const ROLE_LOOKUP: Record<string, { model: RoleLookupModel; field: string }> = {
   buyer: { model: Customer, field: 'email' },
   seller: { model: Seller, field: 'contact' },
   delivery: { model: DeliveryGuy, field: 'contact' },

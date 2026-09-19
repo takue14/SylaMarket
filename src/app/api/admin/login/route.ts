@@ -13,10 +13,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Email and password are required.' }, { status: 400 });
     }
     const normalized = email.trim().toLowerCase();
+    // Vercel sets this header reliably; for other hosts, verify their
+    // proxy guarantees before trusting it the same way.
+    const ip = req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
 
-    const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
-    const rate = await checkRateLimit({ key: `login:admin:ip:${ip}`, maxAttempts: 5, windowSeconds: 3600, blockSeconds: 3600 });
-    if (!rate.allowed) {
+        const rateIp = await checkRateLimit({ key: `login:admin:ip:${ip}`, maxAttempts: 5, windowSeconds: 3600, blockSeconds: 3600 });
+    const rateAccount = await checkRateLimit({ key: `login:admin:account:${normalized}`, maxAttempts: 5, windowSeconds: 3600, blockSeconds: 3600 });
+    if (!rateIp.allowed || !rateAccount.allowed) {
       return NextResponse.json({ message: 'Too many attempts. Please try again later.' }, { status: 429 });
     }
 

@@ -43,9 +43,7 @@ export async function POST(req: NextRequest) {
     let deliveryCoords: { lat: number; lng: number } | null = null;
     const geocoded = await forwardGeocode(location.trim()).catch(() => null);
     if (geocoded?.country) orderCountry = geocoded.country;
-    if (geocoded) deliveryCoords = { lat: geocoded.lat, lng: geocoded.lng };
-
-    deliveryCoords
+      if (geocoded) deliveryCoords = { lat: geocoded.lat, lng: geocoded.lng };
 
     const orderItems: Array<{
       product: string;
@@ -116,12 +114,13 @@ export async function POST(req: NextRequest) {
       balanceDue = Math.round((totalAmount - depositAmount) * 100) / 100;
     }
 
-    const newOrder = await Order.create({
+        const newOrder = await Order.create({
       customer: session.id,
       customerName: customerName.trim(),
       contact: contact.trim(),
       location: location.trim(),
       country: orderCountry,
+      deliveryCoords,
       products: orderItems,
       totalAmount,
       status: 'pending',
@@ -252,7 +251,7 @@ export async function PATCH(req: NextRequest) {
 
         // Notify every seller who has an item in this order that the
         // remaining balance was collected by the driver.
-        const uniqueSellers = [...new Set(order.products.map((p: { seller: any }) => p.seller.toString()))];
+        const uniqueSellers = [...new Set(order.products.map((p: { seller: { toString: () => string } }) => p.seller.toString()))];
         await Promise.all(
           uniqueSellers.map((sellerId) =>
             createNotification({

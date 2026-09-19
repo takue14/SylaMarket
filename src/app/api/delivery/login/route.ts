@@ -8,6 +8,7 @@ import { signSession, sessionCookieName, sessionCookieOptions } from '@/lib/jwt'
 import { trustedDeviceCookieName, verifyTrustedDevice } from '@/lib/trustedDevice';
 import { normalizePhone } from '@/lib/phone';
 import { isEmail } from '@/lib/otpService';
+import { getClientIp } from '@/lib/rateLimit';
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
       if (phoneNormalized) normalized = phoneNormalized;
     }
 
-    const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
+        const ip = getClientIp(req);
     const rateIp = await checkRateLimit({ key: `login:delivery:ip:${ip}`, maxAttempts: 10, windowSeconds: 3600, blockSeconds: 3600 });
     const rateId = await checkRateLimit({ key: `login:delivery:id:${normalized}`, maxAttempts: 8, windowSeconds: 3600, blockSeconds: 3600 });
     if (!rateIp.allowed || !rateId.allowed) {
@@ -36,8 +37,9 @@ export async function POST(req: NextRequest) {
     const isMatch = await bcrypt.compare(password, deliveryGuy.password);
     if (!isMatch) return NextResponse.json({ message: 'Invalid contact or password' }, { status: 401 });
 
-    if (!deliveryGuy.contactVerified) {
-      await issueOtp(normalized, 'signup-verify').catch((err) => console.error('resend signup OTP failed:', err));
+        if (!deliveryGuy.contactVerified) {
+      await issueOtp(normalized, 'signup-verify', `delivery:${normalized}`, { accountId: deliveryGuy._id.toString(), role: 'delivery' })
+        .catch((err) => console.error('resend signup OTP failed:', err));
       return NextResponse.json(
         { message: 'Please verify your contact before signing in.', needsVerification: true, purpose: 'signup-verify', contact: normalized },
         { status: 403 }
@@ -63,13 +65,15 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    await issueOtp(normalized, 'login-verify').catch((err) => console.error('login OTP send failed:', err));
+       await issueOtp(normalized, 'login-verify', `delivery:${normalized}`, { accountId: deliveryGuy._id.toString(), role: 'delivery' })
+      .catch((err) => console.error('login OTP send failed:', err));
     return NextResponse.json({
       message: 'Enter the code we sent to finish signing in.',
       requiresOtp: true,
       contact: normalized,
       role: 'delivery',
     });
+    
   } catch (err) {
     console.error('Delivery login error:', err);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });

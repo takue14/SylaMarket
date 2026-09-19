@@ -4,6 +4,7 @@ import connectToDatabase from '@/lib/mongoose';
 import Ad from '@/models/Ad';
 import cloudinary from '@/lib/cloudinary';
 import { UploadApiResponse } from 'cloudinary';
+import { getSession } from '@/lib/session';
 
 interface UpdateData {
   title?: string;
@@ -21,6 +22,9 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getSession('admin');
+  if (!session) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
   try {
     await connectToDatabase();
     const { id } = await params;
@@ -74,6 +78,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getSession('admin');
+  if (!session) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
   try {
     await connectToDatabase();
     const { id } = await params;

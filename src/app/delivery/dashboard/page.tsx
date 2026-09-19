@@ -663,7 +663,7 @@ export default function DeliveryDashboard() {
                 <BalanceBadge>My Orders</BalanceBadge>
               </BalanceTop>
               <BalanceInfo>
-                <BalanceLabel>Orders you're handling</BalanceLabel>
+                <BalanceLabel>Orders you&apos;re handling</BalanceLabel>
                 <BalanceAmount>{myOrders.length}</BalanceAmount>
               </BalanceInfo>
               <ChipRow>
@@ -734,7 +734,7 @@ export default function DeliveryDashboard() {
                   const res = await fetch('/api/delivery/optimize-route');
                   const data = await res.json();
                   if (res.ok) {
-                    alert('Suggested order:\n' + data.route.map((s: any, i: number) => `${i + 1}. ${s.label}`).join('\n'));
+                    alert('Suggested order:\n' + data.route.map((s: { label: string }, i: number) => `${i + 1}. ${s.label}`).join('\n'));
                   } else {
                     alert(data.message);
                   }

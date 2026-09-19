@@ -30,7 +30,7 @@ export default function CountryPicker({ onSelect }: { onSelect: (country: string
       >
         <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700 }}>Where are you shopping from?</h3>
         <p style={{ margin: '0 0 18px', fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-          We couldn't detect your location automatically. Select your country to see products near you.
+          We couldn&apos;t detect your location automatically. Select your country to see products near you.
         </p>
         <select
           onChange={(e) => e.target.value && onSelect(e.target.value)}

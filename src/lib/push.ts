@@ -25,11 +25,11 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
           { endpoint: sub.endpoint, keys: sub.keys },
           JSON.stringify(payload)
         );
-      } catch (err: any) {
-        // 410 Gone means the browser unsubscribed — clean up stale entries
-        if (err.statusCode === 410) await sub.deleteOne();
-        else console.error('Push send failed:', err.message);
-      }
+      } catch (err) {
+  const statusCode = (err as { statusCode?: number })?.statusCode;
+  if (statusCode === 410) await sub.deleteOne();
+  else console.error('Push send failed:', err instanceof Error ? err.message : err);
+}
     })
   );
 }

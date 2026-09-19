@@ -920,7 +920,7 @@ function captureLivePhoto() {
 
               {loginOtpPending ? (
                 <form className="auth-form is-active" onSubmit={handleVerifyLoginOtp} noValidate>
-                  <h2>Confirm it's you</h2>
+                  <h2>Confirm it&apos;s you</h2>
                   <p className="form-sub">Enter the 6-digit code sent to {loginOtpPending.contact}.</p>
                   {error && <p className="alert-msg alert-msg--error">{error}</p>}
                   {success && <p className="alert-msg alert-msg--success">{success}</p>}
@@ -995,7 +995,7 @@ function captureLivePhoto() {
                       <div className="otp-body">
                         {fpPhase === 'idle' ? (
                           <>
-                            <p>Enter your email or phone and we'll send you a reset code.</p>
+                            <p>Enter your email or phone and we&apos;ll send you a reset code.</p>
                             <input
                               className="field"
                               type="text"
@@ -1109,7 +1109,7 @@ function captureLivePhoto() {
                 <div className="auth-form is-active">
                   <h2>Verification pending</h2>
                   <p className="form-sub">
-                    Your contact is verified. Our team is reviewing your ID and photo — you'll be able to sign in
+                    Your contact is verified. Our team is reviewing your ID and photo — you&apos;ll be able to sign in
                     and start selling once your account is approved.
                   </p>
                   <button

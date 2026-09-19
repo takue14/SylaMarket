@@ -61,7 +61,7 @@ export default function AcademicPage() {
       el.classList.add('fade-out');
       setTimeout(() => {
         el.setAttribute('src', TAB_META[type].animation);
-        (el as any).style.bottom = TAB_META[type].bottom;
+        (el as HTMLElement).style.bottom = TAB_META[type].bottom;
         el.classList.remove('fade-out');
       }, 250);
     }

@@ -31,7 +31,9 @@ const OrderSchema = new mongoose.Schema({
     enum: ['cod_pending', 'awaiting_payment', 'paid', 'failed', 'deposit_paid'],
     required: true,
   },
-  paymentReference: { type: String, default: null },
+    paymentReference: { type: String, default: null, index: true }, // merchant-generated reference, exact-matched by the webhook
+  pollUrl: { type: String, default: null }, // Paynow's poll URL, used only for status polling
+  
   isSplitPayment: { type: Boolean, default: false },
   depositAmount: { type: Number, default: 0 },
   balanceDue: { type: Number, default: 0 },

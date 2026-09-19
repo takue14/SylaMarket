@@ -19,10 +19,15 @@ function hashCode(code: string) {
   return crypto.createHash('sha256').update(code).digest('hex');
 }
 
-export async function issueOtp(rawIdentifier: string, purpose: OtpPurpose, recordKeyOverride?: string) {
+export async function issueOtp(
+  rawIdentifier: string,
+  purpose: OtpPurpose,
+  recordKeyOverride?: string,
+  binding?: { accountId: string; role: string }
+) {
   await connectToDB();
-  const deliveryTarget = normalize(rawIdentifier); // where the code actually gets sent
-  const recordKey = recordKeyOverride ?? deliveryTarget; // what the OTP record is stored/looked-up under
+  const deliveryTarget = normalize(rawIdentifier);
+  const recordKey = recordKeyOverride ?? deliveryTarget;
 
   const rate = await checkRateLimit({
     key: `otp:${purpose}:${recordKey}`,
@@ -35,7 +40,16 @@ export async function issueOtp(rawIdentifier: string, purpose: OtpPurpose, recor
   const code = generateOtp();
   await Otp.findOneAndUpdate(
     { identifier: recordKey, purpose },
-    { identifier: recordKey, purpose, codeHash: hashCode(code), expiresAt: otpExpiry(10), attempts: 0, consumed: false },
+    {
+      identifier: recordKey,
+      purpose,
+      codeHash: hashCode(code),
+      expiresAt: otpExpiry(10),
+      attempts: 0,
+      consumed: false,
+      accountId: binding?.accountId,
+      role: binding?.role,
+    },
     { upsert: true }
   );
 
@@ -46,10 +60,15 @@ export async function issueOtp(rawIdentifier: string, purpose: OtpPurpose, recor
 }
 
 export type OtpVerifyResult =
-  | { valid: true }
+  | { valid: true; accountId?: string; role?: string }
   | { valid: false; reason: 'not_found' | 'expired' | 'too_many_attempts' | 'mismatch' };
 
-export async function verifyOtp(rawIdentifier: string, purpose: OtpPurpose, code: string, recordKeyOverride?: string): Promise<OtpVerifyResult> {
+export async function verifyOtp(
+  rawIdentifier: string,
+  purpose: OtpPurpose,
+  code: string,
+  recordKeyOverride?: string
+): Promise<OtpVerifyResult> {
   await connectToDB();
   const recordKey = recordKeyOverride ?? normalize(rawIdentifier);
 
@@ -66,5 +85,5 @@ export async function verifyOtp(rawIdentifier: string, purpose: OtpPurpose, code
 
   record.consumed = true;
   await record.save();
-  return { valid: true };
+  return { valid: true, accountId: record.accountId, role: record.role };
 }

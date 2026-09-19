@@ -20,7 +20,7 @@ export default function OfflineBanner() {
 
   return (
     <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#ef4444', color: 'white', textAlign: 'center', padding: '8px 12px', fontSize: 13, fontWeight: 600, zIndex: 9998 }}>
-      You're offline — some actions won't work until your connection is back.
+      You&apos;re offline — some actions won&apos;t work until your connection is back.
     </div>
   );
 }

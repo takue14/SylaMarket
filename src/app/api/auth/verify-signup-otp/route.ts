@@ -9,7 +9,19 @@ export async function POST(req: NextRequest) {
     const { contact, code } = await req.json();
     if (!contact || !code) return NextResponse.json({ message: 'Contact and code are required.' }, { status: 400 });
 
-    const result = await verifyOtp(contact, 'signup-verify', code);
+    const normalized = contact.trim().toLowerCase();
+
+    // Try both namespaces since this endpoint doesn't know the role up
+    // front — but once found, the account itself comes from the OTP
+    // record's own binding, never guessed by scanning collections.
+    let result = await verifyOtp(contact, 'signup-verify', code, `seller:${normalized}`);
+    let boundRole: 'seller' | 'delivery' | null = result.valid ? 'seller' : null;
+
+    if (!result.valid && result.reason === 'not_found') {
+      result = await verifyOtp(contact, 'signup-verify', code, `delivery:${normalized}`);
+      boundRole = result.valid ? 'delivery' : null;
+    }
+
     if (!result.valid) {
       const messages: Record<string, string> = {
         not_found: 'No pending verification for this contact. Request a new code.',
@@ -20,28 +32,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: messages[result.reason] }, { status: 400 });
     }
 
-    await connectToDB();
-    const normalized = contact.trim().toLowerCase();
+    if (!result.accountId || !boundRole) {
+      return NextResponse.json({ message: 'This code is not valid for account verification.' }, { status: 400 });
+    }
 
-    // The contact could belong to a seller or a delivery guy — this route
-    // doesn't know which role sent it, so check both collections.
-    const seller = await Seller.findOneAndUpdate({ contact: normalized }, { contactVerified: true }, { new: true });
-    if (seller) {
+    await connectToDB();
+
+    if (boundRole === 'seller') {
+      const seller = await Seller.findByIdAndUpdate(result.accountId, { contactVerified: true }, { new: true });
+      if (!seller) return NextResponse.json({ message: 'Account not found.' }, { status: 404 });
       return NextResponse.json({
         message: 'Contact verified. Your account is now pending admin approval.',
         verificationStatus: seller.verificationStatus,
       });
     }
 
-    const deliveryGuy = await DeliveryGuy.findOneAndUpdate({ contact: normalized }, { contactVerified: true }, { new: true });
-    if (deliveryGuy) {
-      return NextResponse.json({
-        message: 'Contact verified. Your account is now pending admin approval.',
-        verificationStatus: deliveryGuy.verificationStatus,
-      });
-    }
-
-    return NextResponse.json({ message: 'Account not found.' }, { status: 404 });
+    const deliveryGuy = await DeliveryGuy.findByIdAndUpdate(result.accountId, { contactVerified: true }, { new: true });
+    if (!deliveryGuy) return NextResponse.json({ message: 'Account not found.' }, { status: 404 });
+    return NextResponse.json({
+      message: 'Contact verified. Your account is now pending admin approval.',
+      verificationStatus: deliveryGuy.verificationStatus,
+    });
   } catch (err) {
     console.error('verify-signup-otp error:', err);
     return NextResponse.json({ message: 'Verification failed. Please try again.' }, { status: 500 });
