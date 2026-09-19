@@ -470,10 +470,18 @@ function AuthGateway() {
   const [pendingVerifyContact, setPendingVerifyContact] = useState<string | null>(null);
 
   // Seller KYC + signup verification
+    // Seller KYC + signup verification
   const [ecocashNumber, setEcocashNumber] = useState('');
   const [idPhotoFile, setIdPhotoFile] = useState<File | null>(null);
   const [livePhotoFile, setLivePhotoFile] = useState<File | null>(null);
   const idPhotoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Seller/delivery location — required at signup
+  const [country, setCountry] = useState('');
+  const [signupCoords, setSignupCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationAddress, setLocationAddress] = useState('');
+  const [locationMode, setLocationMode] = useState<'choose' | 'manual'>('choose');
 
 const [cameraOpen, setCameraOpen] = useState(false);
 const liveVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -506,11 +514,15 @@ const liveStreamRef = useRef<MediaStream | null>(null);
     setPassword('');
     setError('');
     setSuccess('');
-    setEcocashNumber('');
+        setEcocashNumber('');
     setIdPhotoFile(null);
     setLivePhotoFile(null);
     setSignupStep('form');
     setSignupOtp('');
+    setCountry('');
+    setSignupCoords(null);
+    setLocationAddress('');
+    setLocationMode('choose');
   }
 
   function resetForgotPassword() {
@@ -590,6 +602,68 @@ const liveStreamRef = useRef<MediaStream | null>(null);
   }
 }
 
+
+  async function shareCurrentLocation() {
+    if (!navigator.geolocation) {
+      setError('Your browser does not support location sharing. Enter your address instead.');
+      setLocationMode('manual');
+      return;
+    }
+    setLocating(true);
+    setError('');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setSignupCoords({ lat, lng });
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=3`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          const data = await res.json();
+          if (data?.address?.country) setCountry(data.address.country);
+        } catch {
+          // country stays blank; user can type it manually below
+        }
+        setLocating(false);
+      },
+      () => {
+        setError('Location permission denied. Enter your address instead.');
+        setLocating(false);
+        setLocationMode('manual');
+      },
+      { timeout: 8000 }
+    );
+  }
+
+  async function geocodeTypedAddress() {
+    if (!locationAddress.trim()) {
+      setError('Enter an address or city first.');
+      return;
+    }
+    setLocating(true);
+    setError('');
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(locationAddress.trim())}&limit=1&addressdetails=1`
+      );
+      const data = await res.json();
+      if (!data?.[0]) {
+        setError('Could not find that address. Try adding a city and country.');
+        setLocating(false);
+        return;
+      }
+      setSignupCoords({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+      if (data[0].address?.country) setCountry(data[0].address.country);
+    } catch {
+      setError('Network error looking up that address.');
+    } finally {
+      setLocating(false);
+    }
+  }
+
+
 function stopLiveCamera() {
   liveStreamRef.current?.getTracks().forEach((t) => t.stop());
   liveStreamRef.current = null;
@@ -659,9 +733,13 @@ function captureLivePhoto() {
 
       // ---- signup ----
       // ---- signup ----
-      if (role === 'seller' || role === 'delivery') {
+            if (role === 'seller' || role === 'delivery') {
         if (!idPhotoFile || !livePhotoFile) {
           setError('Please upload both your ID photo and a live photo.');
+          return;
+        }
+        if (!country.trim() || !signupCoords) {
+          setError('Please share your location or enter your address to continue.');
           return;
         }
         const fd = new FormData();
@@ -674,6 +752,9 @@ function captureLivePhoto() {
         fd.append('password', password);
         fd.append('idPhoto', idPhotoFile);
         fd.append('livePhoto', livePhotoFile);
+        fd.append('country', country.trim());
+        fd.append('lat', String(signupCoords.lat));
+        fd.append('lng', String(signupCoords.lng));
 
         const res = await fetch(cfg.registerEndpoint, { method: 'POST', body: fd });
         const data = await res.json().catch(() => ({}) as Record<string, string>);
@@ -1181,7 +1262,7 @@ function captureLivePhoto() {
       {idPhotoFile && <span style={{ fontSize: 11 }}>Selected: {idPhotoFile.name}</span>}
     </div>
 
-    <div className="upload-field">
+        <div className="upload-field">
       <span>Live photo (selfie, taken now)</span>
       <CaptureButton
         icon={<CameraIcon />}
@@ -1189,6 +1270,73 @@ function captureLivePhoto() {
         onClick={openLiveCamera}
       />
       {livePhotoFile && <span style={{ fontSize: 11 }}>Captured ✓</span>}
+    </div>
+
+    <div className="upload-field">
+      <span>Your business location</span>
+
+      {signupCoords ? (
+        <>
+          <input
+            className="field"
+            type="text"
+            placeholder="Confirm your country"
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+          />
+          <button
+            type="button"
+            className="link-small"
+            style={{ alignSelf: 'flex-start' }}
+            onClick={() => {
+              setSignupCoords(null);
+              setCountry('');
+              setLocationMode('choose');
+            }}
+          >
+            Change location
+          </button>
+        </>
+      ) : locationMode === 'choose' ? (
+        <>
+          <CaptureButton
+            icon={<PhotoIcon />}
+            label={locating ? 'Locating…' : 'Share my location'}
+            onClick={shareCurrentLocation}
+          />
+          <button
+            type="button"
+            className="link-small"
+            style={{ alignSelf: 'flex-start' }}
+            onClick={() => setLocationMode('manual')}
+          >
+            Enter my address instead
+          </button>
+        </>
+      ) : (
+        <>
+          <input
+            className="field"
+            type="text"
+            placeholder="e.g. Harare, Zimbabwe"
+            value={locationAddress}
+            onChange={(e) => setLocationAddress(e.target.value)}
+          />
+          <CaptureButton
+            icon={<PhotoIcon />}
+            label={locating ? 'Looking up…' : 'Find my location'}
+            onClick={geocodeTypedAddress}
+          />
+          <button
+            type="button"
+            className="link-small"
+            style={{ alignSelf: 'flex-start' }}
+            onClick={() => setLocationMode('choose')}
+          >
+            ← Back
+          </button>
+        </>
+      )}
     </div>
   </>
 )}
