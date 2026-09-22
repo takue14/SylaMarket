@@ -43,7 +43,7 @@ const StyledWrapper = styled.div`
     position: relative;
     background-color: var(--bg-card, #fff);
     box-shadow: 0 0 1px 0 rgba(24, 94, 224, 0.15), 0 6px 12px 0 rgba(24, 94, 224, 0.15);
-    padding: 0.5rem;
+    padding: 0.3rem;
     border-radius: 99px;
   }
   .tab {

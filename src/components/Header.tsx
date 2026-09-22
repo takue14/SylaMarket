@@ -510,9 +510,10 @@ export default function Header() {
       <style jsx>{`
         @media (max-width: 768px) {
           .${styles.nav}    { display: none !important; }
-          .${styles.header} { padding: 14px 18px !important; }
-          .${styles.icons}  { gap: 14px !important; }
-          .${styles.logo} img { width: 34px; height: 34px; }
+          .${styles.header} { padding: 10px 10px !important; }
+          .${styles.icons}  { gap: 9px !important; }
+          .${styles.logo} img { width: 30px; height: 30px; }
+          .${styles.segmentRow} { padding: 0rem; }
         }
       `}</style>
 
