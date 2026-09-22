@@ -136,6 +136,7 @@ Where Nomad creates the broader ecosystem and infrastructure, Dealo specializes 
           </div>
           <p className="handle">@nomad_systems</p>
           <p className="phone">+263 775 580 320</p>
+          <div className="lowerdev"></div>
         </div>
       </div>
 
@@ -368,6 +369,9 @@ Where Nomad creates the broader ecosystem and infrastructure, Dealo specializes 
             height: 54px;
             bottom: -20px;
           }
+            .lowerdev{
+            height: 50px;
+            }
         }
       `}</style>
     </main>
