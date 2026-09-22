@@ -9,6 +9,7 @@ import MobileBottomBar from '@/components/MobileBottomBar';
 import { CartProvider } from '../context/CartContext';
 import { ProductProvider } from '@/contexts/ProductContext';
 import { NotificationProvider } from '@/context/NotificationContext';
+import StyledComponentsRegistry from '@/lib/registry';
 
 const inter = localFont({
   src: [
@@ -32,15 +33,23 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+        <html lang="en">
       <body className={inter.className}>
-                <NotificationProvider>
+        <StyledComponentsRegistry>
+        <NotificationProvider>
           <CartProvider>
             <ProductProvider>
               <Header />
@@ -51,7 +60,8 @@ export default function RootLayout({
               <OfflineBanner />
             </ProductProvider>
           </CartProvider>
-        </NotificationProvider>
+               </NotificationProvider>
+        </StyledComponentsRegistry>
       </body>
     </html>
   );

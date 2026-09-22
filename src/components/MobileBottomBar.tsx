@@ -2,6 +2,7 @@
 
 import styled from 'styled-components';
 import { usePathname, useRouter } from 'next/navigation';
+import { useIsWebView } from '@/hooks/useIsWebView';
 
 import {
   FaHome,
@@ -14,16 +15,18 @@ import {
    STYLED COMPONENTS
 ========================= */
 
-const BottomBar = styled.div`
+const BottomBar = styled.div<{ $extraOffset?: boolean }>`
   display: none;
 
   @media (max-width: 768px) {
     display: flex;
 
     position: fixed;
-    bottom: 18px;
+    bottom: ${(p) =>
+      p.$extraOffset
+        ? '48px'
+        : 'calc(18px + env(safe-area-inset-bottom, 0px))'};
     left: 50%;
-
     transform: translateX(-50%);
 
     z-index: 999999;
@@ -136,9 +139,11 @@ export default function MobileBottomBar() {
 
   const router = useRouter();
 
+  const isWebView = useIsWebView();
+
   return (
 
-    <BottomBar>
+    <BottomBar $extraOffset={isWebView}>
 
       {/* HOME */}
 
