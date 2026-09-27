@@ -45,7 +45,8 @@ export default function ImageCarousel({ images, alt, height, borderRadius = 16 }
               scrollSnapAlign: 'start',
               width: '100%',
               height: '100%',
-              objectFit: 'cover',
+              objectFit: 'fill',
+              borderRadius:'10px',
             }}
           />
         ))}

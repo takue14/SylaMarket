@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     await connectToDatabase();
 
-        const formData = await req.formData();
+    const formData = await req.formData();
     const files = formData.getAll('images') as File[];
 
     const productName = formData.get('productName') as string;
@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
     const category = formData.get('category') as string;
     const description = formData.get('description') as string;
     const quantity = parseInt(formData.get('quantity') as string) || 0;
-        const session = await getSession('seller');
+
+    const session = await getSession('seller');
     if (!session) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
@@ -27,7 +28,24 @@ export async function POST(req: NextRequest) {
     const segmentRaw = formData.get('segment') as string | null;
     const segment = segmentRaw === 'dealo-fresh' ? 'dealo-fresh' : 'dealo';
 
-    if (!productName || !price || !category ) {
+    const lowStockThreshold = parseInt(formData.get('lowStockThreshold') as string) || 5;
+    const salePriceRaw = formData.get('salePrice') as string | null;
+    const salePrice = salePriceRaw ? parseFloat(salePriceRaw) : null;
+    const depositPercentageRaw = formData.get('depositPercentage') as string | null;
+    const depositPercentage = depositPercentageRaw ? parseInt(depositPercentageRaw) : null;
+
+    const paymentMethodsRaw = formData.get('paymentMethods') as string | null;
+    let paymentMethods = ['cod', 'ecocash', 'paynow'];
+    if (paymentMethodsRaw) {
+      try {
+        const parsed = JSON.parse(paymentMethodsRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) paymentMethods = parsed;
+      } catch {
+        // fall back to the default if parsing fails
+      }
+    }
+
+    if (!productName || !price || !category) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
@@ -39,9 +57,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-       const validFiles = files.filter((f) => f && f.size > 0);
+    const validFiles = files.filter((f) => f && f.size > 0);
 
-           const MAX_FILE_BYTES = 8 * 1024 * 1024;
+    const MAX_FILE_BYTES = 8 * 1024 * 1024;
     const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
     for (const file of validFiles) {
       if (!ALLOWED_TYPES.includes(file.type)) {
@@ -51,7 +69,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ message: 'Each image must be under 8MB.' }, { status: 400 });
       }
     }
-
 
     if (validFiles.length === 0) {
       return NextResponse.json({ message: 'At least one product image is required.' }, { status: 400 });
@@ -77,8 +94,7 @@ export async function POST(req: NextRequest) {
     const images = await Promise.all(validFiles.map(uploadOne));
     const imageLink = images[0];
 
-
-        const newProduct = await Product.create({
+    const newProduct = await Product.create({
       productName,
       price,
       category,
@@ -90,6 +106,10 @@ export async function POST(req: NextRequest) {
       segment,
       country: seller.country,
       location: seller.location,
+      salePrice,
+      lowStockThreshold,
+      depositPercentage,
+      paymentMethods,
     });
 
     return NextResponse.json(newProduct, { status: 201 });
@@ -106,7 +126,7 @@ export async function GET(req: NextRequest) {
     const category = searchParams.get('category') || 'All';
     const search = searchParams.get('search') || '';
     const page = parseInt(searchParams.get('page') || '1');
-        const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const segment = searchParams.get('segment');
     const lat = parseFloat(searchParams.get('lat') || '');
     const lng = parseFloat(searchParams.get('lng') || '');
@@ -115,7 +135,7 @@ export async function GET(req: NextRequest) {
     const query: Record<string, unknown> = {};
     if (category !== 'All') query.category = category;
     if (segment === 'dealo' || segment === 'dealo-fresh') query.segment = segment;
-        if (search) {
+    if (search) {
       const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.$or = [
         { productName: { $regex: escaped, $options: 'i' } },
@@ -128,7 +148,7 @@ export async function GET(req: NextRequest) {
     let products;
 
     if (!isNaN(lat) && !isNaN(lng)) {
-            products = await Product.aggregate([
+      products = await Product.aggregate([
         {
           $geoNear: {
             near: { type: 'Point', coordinates: [lng, lat] },
@@ -151,15 +171,11 @@ export async function GET(req: NextRequest) {
           },
         },
         { $unwind: '$seller' },
-        // Never expose exact coordinates in public product listings —
-        // distance is already computed server-side above; the raw
-        // location itself has no legitimate public use case.
         { $project: { location: 0, 'seller.location': 0 } },
       ]);
-      
-        } else {
+    } else {
       products = await Product.find(query)
-        .select('-location') // never expose exact coordinates publicly
+        .select('-location')
         .populate('seller', 'businessName name')
         .skip((page - 1) * limit)
         .limit(limit)

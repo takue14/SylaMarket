@@ -7,18 +7,27 @@ import { useNotification } from '@/context/NotificationContext';
 import SellerLocationPrompt from '@/components/SellerLocationPrompt';
 
 const CATEGORIES = ['Home', 'Music', 'Phone', 'Shoes', 'Hats', 'Other'];
+const PAYMENT_OPTIONS = [
+  { key: 'cod', label: 'Cash on Delivery' },
+  { key: 'ecocash', label: 'EcoCash' },
+  { key: 'paynow', label: 'Card / Bank (Paynow)' },
+];
 
 export default function SellerUpload() {
   const { notify } = useNotification();
   const [formData, setFormData] = useState({
     productName: '',
     price: '',
+    salePrice: '',
     category: '',
     description: '',
     quantity: '10',
     segment: 'dealo',
+    lowStockThreshold: '5',
+    depositPercentage: '',
+    paymentMethods: ['cod', 'ecocash', 'paynow'] as string[],
   });
-    const [images, setImages] = useState<File[]>([]);
+  const [images, setImages] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [locationReady, setLocationReady] = useState<boolean | null>(null);
@@ -30,11 +39,19 @@ export default function SellerUpload() {
       router.push('/seller/login');
       return;
     }
-        fetch(`/api/users/seller/${sellerId}/location`)
+    fetch(`/api/users/seller/${sellerId}/location`)
       .then((res) => res.json())
       .then((data) => setLocationReady(!!data.hasLocation))
       .catch(() => setLocationReady(false));
   }, [router]);
+
+  const togglePayment = (key: string) => {
+    setFormData((prev) => {
+      const has = prev.paymentMethods.includes(key);
+      const next = has ? prev.paymentMethods.filter((k) => k !== key) : [...prev.paymentMethods, key];
+      return { ...prev, paymentMethods: next };
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,8 +62,12 @@ export default function SellerUpload() {
       setError('Please login as a seller first.');
       return;
     }
-        if (images.length === 0) {
+    if (images.length === 0) {
       setError('Upload at least one product image.');
+      return;
+    }
+    if (formData.paymentMethods.length === 0) {
+      setError('Select at least one payment method.');
       return;
     }
 
@@ -56,12 +77,16 @@ export default function SellerUpload() {
       const data = new FormData();
       data.append('productName', formData.productName);
       data.append('price', formData.price);
+      if (formData.salePrice.trim()) data.append('salePrice', formData.salePrice);
       data.append('category', formData.category);
       data.append('description', formData.description);
       data.append('quantity', formData.quantity);
       data.append('segment', formData.segment);
+      data.append('lowStockThreshold', formData.lowStockThreshold);
+      if (formData.depositPercentage.trim()) data.append('depositPercentage', formData.depositPercentage);
+      data.append('paymentMethods', JSON.stringify(formData.paymentMethods));
       data.append('sellerId', sellerId);
-           images.forEach((img) => data.append('images', img));
+      images.forEach((img) => data.append('images', img));
 
       const res = await fetch('/api/products', {
         method: 'POST',
@@ -77,13 +102,12 @@ export default function SellerUpload() {
       notify('Product uploaded successfully!', 'success');
       router.push('/seller/dashboard');
     } catch (err) {
-  setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
-} finally {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+    } finally {
       setUploading(false);
     }
   };
 
-  // ── Location gate: must come before the form's return below ──
   if (locationReady === false) {
     return (
       <SellerLocationPrompt
@@ -127,6 +151,19 @@ export default function SellerUpload() {
               step="0.01"
               onChange={(e) => setFormData({ ...formData, price: e.target.value })}
               required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Sale Price (optional)</label>
+            <input
+              type="number"
+              className="input"
+              placeholder="e.g. 9.99 — leave blank for no discount"
+              value={formData.salePrice}
+              min="0"
+              step="0.01"
+              onChange={(e) => setFormData({ ...formData, salePrice: e.target.value })}
             />
           </div>
 
@@ -179,6 +216,47 @@ export default function SellerUpload() {
               min="0"
               required
             />
+          </div>
+
+          <div className="form-group">
+            <label>Low-Stock Alert Threshold</label>
+            <input
+              type="number"
+              className="input"
+              placeholder="e.g. 5"
+              value={formData.lowStockThreshold}
+              min="0"
+              onChange={(e) => setFormData({ ...formData, lowStockThreshold: e.target.value })}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Split-Payment Deposit % (optional)</label>
+            <input
+              type="number"
+              className="input"
+              placeholder="e.g. 30 — leave blank to disable split payment"
+              value={formData.depositPercentage}
+              min="1"
+              max="99"
+              onChange={(e) => setFormData({ ...formData, depositPercentage: e.target.value })}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Accepted Payment Methods</label>
+            <div className="payment-options">
+              {PAYMENT_OPTIONS.map((opt) => (
+                <label key={opt.key} className="payment-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={formData.paymentMethods.includes(opt.key)}
+                    onChange={() => togglePayment(opt.key)}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className="form-group file-upload-group">
@@ -266,7 +344,7 @@ const StyledWrapper = styled.div`
     color: var(--text-primary);
   }
 
-    .error-banner {
+  .error-banner {
     background: rgba(239, 68, 68, 0.12);
     color: #ef4444;
     border: 1px solid rgba(239, 68, 68, 0.35);
@@ -287,10 +365,36 @@ const StyledWrapper = styled.div`
     flex-direction: column;
   }
 
-    .form-group label {
+  .form-group label {
     margin-bottom: 8px;
     font-weight: 600;
     color: var(--accent, #4b0082);
+  }
+
+  .payment-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background-color: var(--bg-input, var(--bg-card));
+  }
+
+  .payment-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 400;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+
+  .payment-checkbox input {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--accent, #7c3aed);
   }
 
   .file-upload-group{
@@ -301,7 +405,7 @@ const StyledWrapper = styled.div`
   }
 
   /* ── merged from Input component ── */
-    .input {
+  .input {
     border: 2px solid var(--border);
     width: 100%;
     height: 2.8em;
@@ -352,7 +456,7 @@ const StyledWrapper = styled.div`
     fill: rgb(82, 82, 82);
     margin-bottom: 20px;
   }
-    .file-upload-label {
+  .file-upload-label {
     cursor: pointer;
     background-color: var(--bg-card-deep, #ddd);
     padding: 30px 70px;
@@ -367,7 +471,7 @@ const StyledWrapper = styled.div`
     justify-content: center;
     gap: 5px;
   }
-    .browse-button {
+  .browse-button {
     background-color: var(--text-primary);
     padding: 5px 15px;
     border-radius: 10px;

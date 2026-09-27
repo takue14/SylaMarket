@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useNotification } from '@/context/NotificationContext';
 
+
 const CATEGORIES = ['Home', 'Music', 'Phone', 'Shoes', 'Hats', 'Other'];
 const PAYMENT_OPTIONS = [
   { key: 'cod', label: 'Cash on Delivery' },
@@ -29,8 +30,33 @@ export default function EditProductPage() {
   const router = useRouter();
   const params = useParams();
   const productId = params.id as string;
-
   const [original, setOriginal] = useState<OriginalProduct | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/products/${productId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load product');
+        return res.json();
+      })
+      .then((p) => {
+        setOriginal({
+          productName: p.productName || '',
+          price: p.price ?? 0,
+          salePrice: p.salePrice ?? null,
+          category: p.category || '',
+          description: p.description || '',
+          quantity: p.quantity ?? 0,
+          segment: p.segment || 'dealo',
+          paymentMethods: p.paymentMethods?.length ? p.paymentMethods : ['cod', 'ecocash', 'paynow'],
+          lowStockThreshold: p.lowStockThreshold ?? 5,
+          depositPercentage: p.depositPercentage ?? null,
+        });
+      })
+      .catch(() => {
+        notify('Failed to load product details.', 'error');
+      })
+      .finally(() => setLoading(false));
+  }, [productId, notify]);
   const [form, setForm] = useState({
     productName: '',
     price: '',

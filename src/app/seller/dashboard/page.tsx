@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import Link from 'next/link';
 import LocationSettings from '@/components/LocationSettings';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import ChatListPanel from '@/components/ChatListPanel';
 
 interface Product {
   _id: string;
@@ -382,6 +383,7 @@ export default function SellerDashboard() {
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [restockAmounts, setRestockAmounts] = useState<Record<string, number>>({});
+  const [showInbox, setShowInbox] = useState(false);
 
   const router = useRouter();
   usePushNotifications(!!sellerId);
@@ -576,19 +578,25 @@ export default function SellerDashboard() {
                 </ChipWhite>
               </ChipRow>
 
-              <ActionRow>
+                           <ActionRow>
                 <Link href="/seller/upload" passHref legacyBehavior>
                   <ActionBtn as="a">
                     <CircleIcon>+</CircleIcon> Upload products
                   </ActionBtn>
                 </Link>
 
+                <ActionBtn as="button" onClick={() => setShowInbox(true)}>
+                  <CircleIcon>💬</CircleIcon> Inbox
+                </ActionBtn>
+              </ActionRow>
+
+              {/*<ActionRow style={{ marginTop: 12 }}>
                 <Link href="/seller/bulk-upload" passHref legacyBehavior>
                   <ActionBtn as="a">
                     <CircleIcon>≡</CircleIcon> Bulk CSV
                   </ActionBtn>
                 </Link>
-              </ActionRow>
+              </ActionRow>*/}
             </BalanceCard>
 
             {/* ---- Slide 2: Analysis (was mobileTab "analysis") ---- */}
@@ -829,6 +837,15 @@ export default function SellerDashboard() {
           )}
         </OpsCard>
       </AppShell>
+      
+
+              {showInbox && sellerId && (
+          <ChatListPanel onClose={() => setShowInbox(false)} asRole="seller" />
+        )}
+      
+
+
+
     </Page>
   );
 }

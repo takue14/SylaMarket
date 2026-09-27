@@ -6,6 +6,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useRouter, usePathname } from 'next/navigation';
 import SegmentTabs from './SegmentTabs';
 import NotificationPanel from './NotificationPanel';
+import ChatListPanel from './ChatListPanel';
 
 import {
   FaUser,
@@ -298,6 +299,7 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showTheme, setShowTheme] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showChatList, setShowChatList] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -466,9 +468,18 @@ export default function Header() {
                 <Link href="/wishlist" className="menuButton" onClick={() => setIsMenuOpen(false)}>
           ♥ Wishlist
         </Link>
-        <Link href="/settings/history" className="menuButton" onClick={() => setIsMenuOpen(false)}>
+                <Link href="/settings/history" className="menuButton" onClick={() => setIsMenuOpen(false)}>
            👁️‍🗨️ View History
         </Link>
+        <button
+          className="menuButton"
+          onClick={() => {
+            setIsMenuOpen(false);
+            setShowChatList(true);
+          }}
+        >
+          💬 Messages
+        </button>
 
         
         <div className="divider" />
@@ -562,6 +573,7 @@ export default function Header() {
           </div>
         </ThemeOverlay>
       )}
+      {showChatList && <ChatListPanel onClose={() => setShowChatList(false)} asRole="buyer" />}
     </>
   );
 }

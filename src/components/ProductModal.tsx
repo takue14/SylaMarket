@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect ,useRef } from 'react';
 import Image from 'next/image';
 import { Product } from '@/types/product';
 import { useCart } from '@/context/CartContext';
 import styled from 'styled-components';
 import { useNotification } from '@/context/NotificationContext';
 import ImageCarousel from './ImageCarousel';
+import FullscreenImageViewer from './FullscreenImageViewer';
+import { useTactileFeedback } from '@/hooks/useTactileFeedback';
+import MessageSellerButton from './MessageSellerButton';
 
 
 interface Review {
@@ -553,12 +556,32 @@ const StarLabel = styled.p`
 export default function ProductModal({ product, isOpen, onClose, onSelectRelated }: ProductModalProps) {
   const { addToCart, buyNow } = useCart();
   const { notify } = useNotification();
+  const trigger = useTactileFeedback();
 
-    const [comment, setComment] = useState('');
+  const [comment, setComment] = useState('');
+  const [fullscreenSrc, setFullscreenSrc] = useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  
+  const modalContentRef = useRef<HTMLDivElement>(null);
+
+useEffect(() => {
+  modalContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+}, [product._id]);
+
+
+
+  
   const [rating, setRating] = useState(5);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [related, setRelated] = useState<Product[]>([]);
+
+
+  useEffect(() => {
+  modalRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+}, [product._id]);
+
 
   useEffect(() => {
     if (!isOpen || !product._id) return;
@@ -586,12 +609,13 @@ export default function ProductModal({ product, isOpen, onClose, onSelectRelated
       .catch(() => setRelated([]));
   }, [isOpen, product.category, product._id]);
 
-  const handleAddToCart = () => {
+    const handleAddToCart = () => {
+    trigger({ frequency: 700 });
     const added = addToCart(product);
     if (added) notify(`${product.productName} added to cart!`, 'success');
   };
-
-  const handleBuyNow = () => {
+    const handleBuyNow = () => {
+    trigger();
     const proceeded = buyNow(product);
     if (proceeded) onClose();
   };
@@ -626,19 +650,30 @@ export default function ProductModal({ product, isOpen, onClose, onSelectRelated
 
   return (
     <Overlay onClick={onClose}>
-      <Modal onClick={e => e.stopPropagation()}>
+            <Modal ref={modalRef} onClick={e => e.stopPropagation()}>
 
         <CloseBtn onClick={onClose}>×</CloseBtn>
 
         <TopSection>
-                   <ImageSection>
+                                      <ImageSection
+            onClick={() => {
+              const src = product.images?.[0] || product.imageLink;
+              if (src) setFullscreenSrc(src);
+            }}
+            style={{ cursor: 'zoom-in' }}
+          >
             <ImageCarousel
               images={product.images?.length ? product.images : product.imageLink ? [product.imageLink] : []}
               alt={product.productName}
-              height={240}
+              height={290}
               borderRadius={16}
             />
           </ImageSection>
+
+          {fullscreenSrc && (
+            <FullscreenImageViewer src={fullscreenSrc} alt={product.productName} onClose={() => setFullscreenSrc(null)} />
+          )}
+          
 
           <DetailsSection>
             <ProductTitle>{product.productName}</ProductTitle>
@@ -655,8 +690,10 @@ export default function ProductModal({ product, isOpen, onClose, onSelectRelated
                         <Description>{product.description || 'No description available.'}</Description>
             <SellerLine>Sold by {product.seller?.businessName || product.seller?.name || 'Unknown seller'}</SellerLine>
 
-            <ActionRow>
+                        <ActionRow>
+              
               <AddToCartBtn onClick={handleAddToCart}>+ Add to Cart</AddToCartBtn>
+
 
               <BuyNowWrapper>
                 <div data-tooltip={`Price: $${product.price}`} className="button" onClick={handleBuyNow}>
@@ -670,6 +707,7 @@ export default function ProductModal({ product, isOpen, onClose, onSelectRelated
                   </div>
                 </div>
               </BuyNowWrapper>
+              {product.seller?._id && <MessageSellerButton sellerId={product.seller._id} />}
             </ActionRow>
           </DetailsSection>
         </TopSection>

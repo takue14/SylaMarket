@@ -7,6 +7,7 @@ import { Product } from '@/types/product';
 import { useCart } from '@/context/CartContext';
 import { useProductRating } from '@/hooks/useProductRating';
 import { useState, useEffect } from 'react';
+import { useTactileFeedback } from '@/hooks/useTactileFeedback';
 
 interface Props {
   product: Product;
@@ -49,6 +50,7 @@ export default function ProductCard({ product, onClick }: Props) {
   const { addToCart } = useCart();
   const { average, count } = useProductRating(product._id);
   const [wishlisted, setWishlisted] = useState(false);
+  const trigger = useTactileFeedback();
 
   useEffect(() => {
     fetch('/api/wishlist/status')
@@ -81,8 +83,9 @@ export default function ProductCard({ product, onClick }: Props) {
     ['--bg-color']: '#a78bfa',
   } as CSSProperties;
 
-    const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
+      const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
+    trigger({ frequency: 700 });
     const added = addToCart(product);
     if (added) {
       const customerId = localStorage.getItem('customerId');
