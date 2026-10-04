@@ -6,6 +6,10 @@ const OrderItemSchema = new mongoose.Schema({
   productName: { type: String, required: true },
   quantity: { type: Number, required: true },
   price: { type: Number, required: true },
+    feeFlaggedForReview: { type: Boolean, default: false },
+  feeFlagReason: { type: String, default: null },
+    deliveryCodeHash: { type: String, default: null },
+  deliveryCodeVerified: { type: Boolean, default: false },
 
     
 });
@@ -37,13 +41,19 @@ const OrderSchema = new mongoose.Schema({
   isSplitPayment: { type: Boolean, default: false },
   depositAmount: { type: Number, default: 0 },
   balanceDue: { type: Number, default: 0 },
-  deliveryCoords: {
-    lat: { type: Number, default: null },
-    lng: { type: Number, default: null },
+    deliveryCoords: {
+    lat: { type: Number, default: null, min: -90, max: 90 },
+    lng: { type: Number, default: null, min: -180, max: 180 },
   },
     balanceCollected: { type: Boolean, default: false },
   balanceCollectedAt: { type: Date, default: null },
-  estimatedMinutes: { type: Number, default: null }
+  estimatedMinutes: { type: Number, default: null },
+    driverFee: { type: Number, default: null },        // locked in when a driver claims the order
+  driverDistanceKm: { type: Number, default: null },
+    feeFlaggedForReview: { type: Boolean, default: false },
+  feeFlagReason: { type: String, default: null },
+    deliveryCodeHash: { type: String, default: null },
+  deliveryCodeVerified: { type: Boolean, default: false },
 });
 
 OrderSchema.index({ 'products.seller': 1 });

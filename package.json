@@ -19,6 +19,7 @@
     "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.3",
     "libphonenumber-js": "^1.13.8",
+    "maplibre-gl": "^6.11.2",
     "mongoose": "^8.24.1",
     "multer": "^2.0.2",
     "next": "^15.5.20",

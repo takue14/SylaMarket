@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
 import LocationSettings from '@/components/LocationSettings';
 import Ac404 from '@/components/Ac404';
+import { haversineKm } from '@/lib/geo';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useNotification } from '@/context/NotificationContext';
+
+
 
 interface OrderItem {
   productName: string;
@@ -14,17 +19,26 @@ interface OrderItem {
 
 interface Order {
   _id: string;
-  customerName: string;
-  contact: string;
-  location: string;
-  products: OrderItem[];
+  customerName?: string;
+  contact?: string;
+  location?: string;
+  products?: OrderItem[];
   totalAmount: number;
   status: 'pending' | 'inprogress' | 'delivered';
   claimedBy?: string | null;
-  createdAt: string;
-  isSplitPayment: boolean;
-  balanceDue: number;
-  balanceCollected: number;
+  createdAt?: string;
+  isSplitPayment?: boolean;
+  balanceDue?: number;
+  balanceCollected?: boolean;
+  driverFee?: number | null;
+  distanceKm?: number | null;
+  durationMin?: number | null;
+   // Pool-only fields (unclaimed orders) — present instead of the detailed
+  // fields above until this driver actually claims the order.
+  orderRef?: string;
+  itemCount?: number;
+  orderValue?: number;
+  country?: string | null;
 }
 
 const SLIDE_COUNT = 3;
@@ -401,6 +415,7 @@ export default function DeliveryDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [deliveryGuyId, setDeliveryGuyId] = useState<string | null>(null);
   const router = useRouter();
+  const { notify } = useNotification();
 
   // ----- carousel drag state (identical mechanics to SellerDashboard) -----
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -412,6 +427,12 @@ export default function DeliveryDashboard() {
   // ----- content-panel height sync, so the track resizes smoothly per slide -----
   const panelRefs = useRef<Array<HTMLDivElement | null>>([]);
   const [contentHeight, setContentHeight] = useState<number | undefined>(undefined);
+
+    const [needsLocation, setNeedsLocation] = useState(false);
+  const positionRef = useRef<{ lat: number; lng: number } | null>(null);
+  const lastFetchedPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  const [commissionEarned, setCommissionEarned] = useState(0);
+  const [commissionPaid, setCommissionPaid] = useState(0);
 
   const goToSlide = (index: number) => {
     const clamped = Math.max(0, Math.min(SLIDE_COUNT - 1, index));
@@ -453,11 +474,15 @@ export default function DeliveryDashboard() {
   const trackTransform = `translateX(${-activeSlide * SLIDE_WIDTH + dragDeltaPercent}%)`;
 
   const fetchOrders = async () => {
-    const res = await fetch('/api/orders?as=delivery');
+        const pos = positionRef.current;
+    const res = await fetch(`/api/delivery/orders${pos ? `?lat=${pos.lat}&lng=${pos.lng}` : ''}`);
     if (res.ok) {
-      let data = await res.json();
+      const payload = await res.json();
+      setNeedsLocation(!!payload.needsLocation);
+           let data = payload.orders as Order[];
       const now = new Date();
       data = data.map((order: Order) => {
+        if (!order.createdAt) return order;
         const hoursOld = (now.getTime() - new Date(order.createdAt).getTime()) / (1000 * 60 * 60);
         if (hoursOld > 24 && order.status !== 'delivered') {
           return { ...order, status: 'pending', claimedBy: null };
@@ -465,6 +490,15 @@ export default function DeliveryDashboard() {
         return order;
       });
       setOrders(data);
+    }
+  };
+
+  const fetchEarningsSummary = async () => {
+    const res = await fetch('/api/delivery/earnings-summary');
+    if (res.ok) {
+      const data = await res.json();
+      setCommissionEarned(data.totalEarned ?? 0);
+      setCommissionPaid(data.totalPaid ?? 0);
     }
   };
 
@@ -476,9 +510,32 @@ export default function DeliveryDashboard() {
     }
     setDeliveryGuyId(id);
     fetchOrders();
-    const interval = setInterval(fetchOrders, 8000);
+    fetchEarningsSummary();
+    const interval = setInterval(() => {
+      fetchOrders();
+      fetchEarningsSummary();
+    }, 8000);
     return () => clearInterval(interval);
   }, [router]);
+
+    useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        positionRef.current = next;
+        const last = lastFetchedPosRef.current;
+        if (!last || haversineKm(last, next) > 0.3) {
+          lastFetchedPosRef.current = next;
+          fetchOrders();
+        }
+      },
+      () => {},
+      { maximumAge: 30000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Re-measure the active panel's height whenever the slide or its data changes
   useEffect(() => {
@@ -490,7 +547,7 @@ export default function DeliveryDashboard() {
     const res = await fetch('/api/orders', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, status: 'inprogress' }),
+            body: JSON.stringify({ orderId, status: 'inprogress', lat: positionRef.current?.lat, lng: positionRef.current?.lng }),
     });
     if (res.ok) fetchOrders();
   };
@@ -507,8 +564,36 @@ export default function DeliveryDashboard() {
       return;
     }
 
-    const data = await res.json().catch(() => ({}));
-    if (data.requiresBalanceConfirmation) {
+        const data = await res.json().catch(() => ({}));
+    if (data.requiresDeliveryCode) {
+      const code = prompt('Ask the customer for their 4-digit delivery code:');
+      if (code) {
+        const retryRes = await fetch('/api/orders', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, status: newStatus, deliveryCode: code.trim() }),
+        });
+        const retryData = await retryRes.json().catch(() => ({}));
+        if (retryRes.ok) {
+          fetchOrders();
+        } else if (retryData.requiresBalanceConfirmation) {
+          // Code was correct, but split-payment balance still needs confirming
+          const confirmed = confirm(
+            `Confirm you have collected the remaining $${retryData.balanceDue.toFixed(2)} balance before marking this delivered.`
+          );
+          if (confirmed) {
+            const finalRes = await fetch('/api/orders', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ orderId, status: newStatus, deliveryCode: code.trim(), balanceCollected: true }),
+            });
+            if (finalRes.ok) fetchOrders();
+          }
+        } else {
+          alert(retryData.message || 'Incorrect code.');
+        }
+      }
+    } else if (data.requiresBalanceConfirmation) {
       const confirmed = confirm(
         `Confirm you have collected the remaining $${data.balanceDue.toFixed(2)} balance from the customer before marking this delivered.`
       );
@@ -536,10 +621,10 @@ export default function DeliveryDashboard() {
   const startOfYear = new Date(now.getFullYear(), 0, 1).toISOString();
 
   const sum = (arr: Order[]) => arr.reduce((s, o) => s + o.totalAmount, 0);
-  const todayRevenue = sum(deliveredOrders.filter((o) => o.createdAt >= startOfToday));
-  const weekRevenue = sum(deliveredOrders.filter((o) => o.createdAt >= startOfWeek));
-  const monthRevenue = sum(deliveredOrders.filter((o) => o.createdAt >= startOfMonth));
-  const yearRevenue = sum(deliveredOrders.filter((o) => o.createdAt >= startOfYear));
+  const todayRevenue = sum(deliveredOrders.filter((o) => !!o.createdAt && o.createdAt >= startOfToday));
+  const weekRevenue = sum(deliveredOrders.filter((o) => !!o.createdAt && o.createdAt >= startOfWeek));
+  const monthRevenue = sum(deliveredOrders.filter((o) => !!o.createdAt && o.createdAt >= startOfMonth));
+  const yearRevenue = sum(deliveredOrders.filter((o) => !!o.createdAt && o.createdAt >= startOfYear));
   const overallRevenue = sum(deliveredOrders);
 
   const splitMoney = (value: number) => {
@@ -565,8 +650,8 @@ export default function DeliveryDashboard() {
         {order.contact} &nbsp;·&nbsp; {order.location}
       </CardMeta>
 
-      <div>
-        {order.products.map((item, i) => (
+            <div>
+        {order.products?.map((item, i) => (
           <ProductLine key={i}>
             {item.productName} × {item.quantity}
           </ProductLine>
@@ -574,6 +659,16 @@ export default function DeliveryDashboard() {
       </div>
 
             <CardAmount>${order.totalAmount}</CardAmount>
+
+                  {order.driverFee != null && (
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,0.12)', padding: '4px 10px', borderRadius: 8 }}>
+          Your fee: ${order.driverFee.toFixed(2)}
+          {order.distanceKm != null ? ` · ${order.distanceKm.toFixed(1)} km` : ''}
+          {order.durationMin ? ` · ~${order.durationMin} min` : ''}
+        </div>
+      )}
+
+
       {order.isSplitPayment && !order.balanceCollected && (
         <div style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '4px 10px', borderRadius: 8 }}>
           Collect ${order.balanceDue?.toFixed(2)} balance (deposit already paid)
@@ -616,6 +711,39 @@ export default function DeliveryDashboard() {
             </ActionBtn>
           </>
         )}
+      </CardActions>
+    </OrderCard>
+  );
+
+    const renderPoolCard = (order: Order) => (
+    <OrderCard key={order._id}>
+      <CardTop>
+        <CustomerName>
+          <svg viewBox="0 0 24 24">
+            <path d="M16 11c1.66 0 2.99-1.79 2.99-4S17.66 3 16 3s-3 1.79-3 4 1.34 4 3 4zm-8 0c1.66 0 2.99-1.79 2.99-4S9.66 3 8 3 5 4.79 5 7s1.34 4 3 4zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+          </svg>
+          Order {order.orderRef}
+        </CustomerName>
+        <StatusBadge status="pending">pending</StatusBadge>
+      </CardTop>
+
+      <CardMeta>
+        {order.itemCount} item{order.itemCount === 1 ? '' : 's'} · Order value ${order.orderValue?.toFixed(2)}
+        {order.country ? ` · ${order.country}` : ''}
+      </CardMeta>
+
+      {order.driverFee != null && (
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,0.12)', padding: '4px 10px', borderRadius: 8 }}>
+          Your fee: ${order.driverFee.toFixed(2)}
+          {order.distanceKm != null ? ` · ${order.distanceKm.toFixed(1)} km` : ''}
+          {order.durationMin ? ` · ~${order.durationMin} min` : ''}
+        </div>
+      )}
+
+      <CardActions>
+        <ActionBtn variant="green" onClick={() => claimOrder(order._id)}>
+          Claim Order
+        </ActionBtn>
       </CardActions>
     </OrderCard>
   );
@@ -718,10 +846,10 @@ export default function DeliveryDashboard() {
             {/* Panel 1: Available Orders */}
             <ContentPanel ref={(el) => {panelRefs.current[0] = el}}>
               <SectionTitle style={{ fontSize: 17 }}>Available Orders</SectionTitle>
-              {availableOrders.length === 0 ? (
+                            {availableOrders.length === 0 ? (
                 <Ac404/>
               ) : (
-                <OrderGrid>{availableOrders.map(renderCard)}</OrderGrid>
+                <OrderGrid>{availableOrders.map(renderPoolCard)}</OrderGrid>
               )}
             </ContentPanel>
 
@@ -733,15 +861,18 @@ export default function DeliveryDashboard() {
                 onClick={async () => {
                   const res = await fetch('/api/delivery/optimize-route');
                   const data = await res.json();
-                  if (res.ok) {
-                    alert('Suggested order:\n' + data.route.map((s: { label: string }, i: number) => `${i + 1}. ${s.label}`).join('\n'));
-                  } else {
+                  if (!res.ok) {
                     alert(data.message);
+                    return;
                   }
+                  if (data.warning) {
+                    notify(data.warning, 'warning');
+                  }
+                  window.open(data.mapsUrl, '_blank');
                 }}
                 style={{ marginBottom: 12, padding: '8px 14px', borderRadius: 8, border: 'none', background: '#5b6cff', color: 'white', fontWeight: 600, cursor: 'pointer' }}
               >
-                Optimize my route
+                🧭 Navigate
               </button>
               
               {myOrders.length === 0 ? (
@@ -774,6 +905,14 @@ export default function DeliveryDashboard() {
                 <AnalyticsCard bg="#1b1b1b" dark>
                   <div className="label">Overall</div>
                   <div className="value">${overallRevenue.toLocaleString()}</div>
+                </AnalyticsCard>
+                <AnalyticsCard bg="#ffe08a">
+                  <div className="label">Commission Earned</div>
+                  <div className="value">${commissionEarned.toLocaleString()}</div>
+                </AnalyticsCard>
+                <AnalyticsCard bg="#a8e6cf">
+                  <div className="label">Commission Paid</div>
+                  <div className="value">${commissionPaid.toLocaleString()}</div>
                 </AnalyticsCard>
               </AnalyticsGrid>
 

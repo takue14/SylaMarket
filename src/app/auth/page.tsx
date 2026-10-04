@@ -5,6 +5,8 @@ import styled from 'styled-components';
 import { useCart } from '@/context/CartContext';
 import { resolvePostLoginIntent } from '@/lib/cartIntent';
 import { useNotification } from '@/context/NotificationContext';
+import MapLocationPicker from '@/components/MapLocationPicker';
+import { reverseGeocodeCountry } from '@/lib/geocoding';
 
 /* ============================================================
    Role configuration
@@ -482,7 +484,7 @@ function AuthGateway() {
   const [locating, setLocating] = useState(false);
   const [locationAddress, setLocationAddress] = useState('');
   const [locationMode, setLocationMode] = useState<'choose' | 'manual'>('choose');
-
+  const [showMapPicker, setShowMapPicker] = useState(false);
 const [cameraOpen, setCameraOpen] = useState(false);
 const liveVideoRef = useRef<HTMLVideoElement | null>(null);
 const liveStreamRef = useRef<MediaStream | null>(null);
@@ -1275,7 +1277,7 @@ function captureLivePhoto() {
     <div className="upload-field">
       <span>Your business location</span>
 
-      {signupCoords ? (
+           {signupCoords ? (
         <>
           <input
             className="field"
@@ -1291,13 +1293,12 @@ function captureLivePhoto() {
             onClick={() => {
               setSignupCoords(null);
               setCountry('');
-              setLocationMode('choose');
             }}
           >
             Change location
           </button>
         </>
-      ) : locationMode === 'choose' ? (
+      ) : (
         <>
           <CaptureButton
             icon={<PhotoIcon />}
@@ -1308,34 +1309,23 @@ function captureLivePhoto() {
             type="button"
             className="link-small"
             style={{ alignSelf: 'flex-start' }}
-            onClick={() => setLocationMode('manual')}
+            onClick={() => setShowMapPicker(true)}
           >
-            Enter my address instead
+            Pick exact location on map
           </button>
         </>
-      ) : (
-        <>
-          <input
-            className="field"
-            type="text"
-            placeholder="e.g. Harare, Zimbabwe"
-            value={locationAddress}
-            onChange={(e) => setLocationAddress(e.target.value)}
-          />
-          <CaptureButton
-            icon={<PhotoIcon />}
-            label={locating ? 'Looking up…' : 'Find my location'}
-            onClick={geocodeTypedAddress}
-          />
-          <button
-            type="button"
-            className="link-small"
-            style={{ alignSelf: 'flex-start' }}
-            onClick={() => setLocationMode('choose')}
-          >
-            ← Back
-          </button>
-        </>
+      )}
+
+      {showMapPicker && (
+        <MapLocationPicker
+          onCancel={() => setShowMapPicker(false)}
+          onConfirm={async ({ lat, lng }) => {
+            setSignupCoords({ lat, lng });
+            const geo = await reverseGeocodeCountry(lat, lng);
+            if (geo?.country) setCountry(geo.country);
+            setShowMapPicker(false);
+          }}
+        />
       )}
     </div>
   </>

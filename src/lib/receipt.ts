@@ -42,3 +42,23 @@ export async function sendReceiptEmail(toEmail: string, order: ReceiptOrder) {
     html,
   });
 }
+
+export async function sendDeliveryCodeEmail(toEmail: string, orderId: string, code: string) {
+  const html = `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
+      <h2>Your delivery is on the way</h2>
+      <p>Order #${orderId.slice(-6)} has been picked up and is headed your way.</p>
+      <p>Give this code to the driver when they arrive to confirm you received your order:</p>
+      <div style="font-size:32px;font-weight:800;letter-spacing:6px;text-align:center;padding:16px;background:#f3f3f3;border-radius:12px;margin:16px 0;">
+        ${code}
+      </div>
+      <p style="font-size:13px;color:#777;">Don't share this code with anyone except the delivery driver at handoff.</p>
+    </div>
+  `;
+  await getTransporter().sendMail({
+    from: process.env.SMTP_FROM || 'Dealo <no-reply@dealo.com>',
+    to: toEmail,
+    subject: `Your delivery code: ${code}`,
+    html,
+  });
+}

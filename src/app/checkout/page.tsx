@@ -1,10 +1,10 @@
 'use client';
-
 import { useCart } from '@/context/CartContext';
 import { useRouter } from 'next/navigation';
 import { useState ,useEffect} from 'react';
 import styled, { keyframes } from 'styled-components';
 import { CartItem } from '@/context/CartContext';
+import MapLocationPicker from '@/components/MapLocationPicker';
 
 
 
@@ -18,7 +18,9 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [contact, setContact] = useState('');
-  const [location, setLocation] = useState('');
+    const [location, setLocation] = useState('');
+  const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [showMapPicker, setShowMapPicker] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState('Cash on Delivery');
   const [wantsSplitPayment, setWantsSplitPayment] = useState(false);
 
@@ -92,6 +94,7 @@ const def = (data as SavedAddress[])?.find((a) => a.isDefault);
       location: location.trim(),
       paymentMethod: methodMap[selectedPayment] || 'cod',
       isSplitPayment: splitPaymentEligible && wantsSplitPayment,
+      deliveryCoords: deliveryCoords ?? undefined,
       products: cart.map((item) => ({
         productId: item._id,
         quantity: item.quantity,
@@ -285,14 +288,31 @@ const def = (data as SavedAddress[])?.find((a) => a.isDefault);
                   onChange={(e) => setCustomerName(e.target.value)}
                 />
               </div>
-              <div className="input-box">
+                            <div className="input-box" style={{ flexDirection: 'column', alignItems: 'flex-start', height: 'auto', padding: '12px 16px', gap: 6 }}>
+                
                 <input
                   type="text"
                   placeholder="Location"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
+                  style={{ width: '100%' }}
                 />
+                <button type="button" onClick={() => setShowMapPicker(true)} className="map-picker-btn">
+                  Pick exact location on map
+                </button>
               </div>
+
+              {showMapPicker && (
+                <MapLocationPicker
+                  onCancel={() => setShowMapPicker(false)}
+                  onConfirm={({ lat, lng, address }) => {
+                    setLocation(address);
+                    setDeliveryCoords({ lat, lng });
+                    setShowMapPicker(false);
+                  }}
+                />
+              )}
+              
               <div className="input-box">
                 <input
                   type="text"
@@ -404,12 +424,19 @@ const def = (data as SavedAddress[])?.find((a) => a.isDefault);
                 onChange={(e) => setContact(e.target.value)}
                 className="input_field"
               />
-              <input
+                            <input
                 placeholder="Delivery Location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className="input_field"
               />
+              <button
+                type="button"
+                onClick={() => setShowMapPicker(true)}
+                style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', color: '#8B5CF6', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+              >
+                📍 Pick exact location on map
+              </button>
             </div>
           </div>
 
@@ -671,6 +698,16 @@ const StyledWrapper = styled.div`
   .input-box:focus-within {
     border: 1.5px solid #8B5CF6;
     box-shadow: 0 0 0 3px rgba(139,92,246,0.08);
+  }
+      .map-picker-btn {
+    background: transparent;
+    border: none;
+    color: #8B5CF6;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
   }
   .input-box input {
     width: 100%; border: none; outline: none;

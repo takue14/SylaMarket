@@ -17,7 +17,7 @@ export function useIsWebView(): boolean {
     // show up here — adjust this string if your Expo wrapper sets a custom
     // user agent you can match on instead.
     const androidWebView = /Android.*wv\)/.test(ua);
-    const iosStandalone = (window.navigator as any).standalone === false && /iPhone|iPad/.test(ua) && !/Safari/.test(ua);
+    const iosStandalone = (window.navigator as unknown as { standalone?: boolean }).standalone === false && /iPhone|iPad/.test(ua) && !/Safari/.test(ua);
     setIsWebView(androidWebView || iosStandalone);
   }, []);
 

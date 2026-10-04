@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useNotification } from '@/context/NotificationContext';
 import { reverseGeocodeCountry, forwardGeocode } from '@/lib/geocoding';
+import MapLocationPicker from './MapLocationPicker';
 
 type Role = 'seller' | 'buyer' | 'delivery';
 
@@ -16,6 +17,7 @@ export default function LocationSettings({ role, userId }: Props) {
   const [savedCountry, setSavedCountry] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   const [locating, setLocating] = useState(false);
   const [geocodingAddress, setGeocodingAddress] = useState(false);
@@ -154,27 +156,23 @@ export default function LocationSettings({ role, userId }: Props) {
             </>
           )}
 
-          {mode === 'manual' && !coords && (
-            <>
-              <input
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="e.g. Harare, Zimbabwe"
-                style={input}
-              />
-              <button onClick={handleGeocodeAddress} disabled={geocodingAddress} style={btnPrimary}>
-                {geocodingAddress ? (
-                  <span style={loadingRow}>
-                    <span className="mini-marker" />
-                    Looking up…
-                  </span>
-                ) : (
-                  'Find location'
-                )}
-              </button>
-            </>
-          )}
+                {mode === 'manual' && !coords && (
+        <button onClick={() => setShowMapPicker(true)} >
+          Pick exact location on map
+        </button>
+      )}
+
+      {showMapPicker && (
+        <MapLocationPicker
+          onCancel={() => setShowMapPicker(false)}
+                    onConfirm={async ({ lat, lng }) => {
+            setCoords({ lat, lng });
+            const geo = await reverseGeocodeCountry(lat, lng);
+            if (geo?.country) setCountry(geo.country);
+            setShowMapPicker(false);
+          }}
+        />
+      )}
 
           {coords && (
             <>

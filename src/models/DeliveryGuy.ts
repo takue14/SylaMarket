@@ -17,6 +17,11 @@ export interface DeliveryGuyDoc extends Document {
     coordinates: [number, number];
   };
   createdAt: Date;
+    lastVerifiedLocation: {
+    lat: { type: number, default: null },
+    lng: { type: number, default: null },
+    at: { type: Date, default: null },
+  },
 }
 
 const deliveryGuySchema = new Schema<DeliveryGuyDoc>({
@@ -34,6 +39,7 @@ const deliveryGuySchema = new Schema<DeliveryGuyDoc>({
     coordinates: { type: [Number], default: undefined },
   },
   createdAt: { type: Date, default: Date.now },
+  
 });
 
 export default mongoose.models.DeliveryGuy || mongoose.model<DeliveryGuyDoc>('DeliveryGuy', deliveryGuySchema);
