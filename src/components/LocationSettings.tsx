@@ -14,7 +14,8 @@ interface Props {
 
 export default function LocationSettings({ role, userId }: Props) {
   const { notify } = useNotification();
-  const [savedCountry, setSavedCountry] = useState<string | null>(null);
+   const [savedCountry, setSavedCountry] = useState<string | null>(null);
+  const [savedCoords, setSavedCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
@@ -30,7 +31,10 @@ export default function LocationSettings({ role, userId }: Props) {
   useEffect(() => {
     fetch(`/api/users/${role}/${userId}/location`)
       .then((res) => res.json())
-      .then((data) => setSavedCountry(data.country))
+      .then((data) => {
+        setSavedCountry(data.country);
+        if (data.coordinates) setSavedCoords({ lat: data.coordinates[1], lng: data.coordinates[0] });
+      })
       .finally(() => setLoading(false));
   }, [role, userId]);
 
@@ -121,13 +125,18 @@ export default function LocationSettings({ role, userId }: Props) {
     <div style={card}>
       <style>{markerStyles}</style>
 
-      {!editing && (
+            {!editing && (
         <>
           <div style={eyebrow}>Current location</div>
           <div style={valueRow}>
             <span className="value-marker" />
             <span style={valueText}>{savedCountry || 'Not set'}</span>
           </div>
+          {savedCoords && (
+            <div style={descriptionText}>
+              Pinned at {savedCoords.lat.toFixed(4)}, {savedCoords.lng.toFixed(4)} — used for closest-product sorting
+            </div>
+          )}
           <button onClick={startEditing} style={btnPrimary}>
             {savedCountry ? 'Update location' : 'Set location'}
           </button>

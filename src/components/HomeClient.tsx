@@ -14,7 +14,8 @@ import CategoryMosaicCard from './CategoryMosaicCard';
 import CategoryProductsPanel from './CategoryProductsPanel';
 import StoreSpotlightCard from './StoreSpotlightCard';
 import { useUserLocation } from '@/hooks/useUserLocation';
-import CountryPicker from './CountryPicker';
+import MapLocationPicker from './MapLocationPicker';
+import { reverseGeocodeCountry } from '@/lib/geocoding';import CountryPicker from './CountryPicker';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 
@@ -368,7 +369,7 @@ const [activeCategoryModal, setActiveCategoryModal] = useState<string | null>(nu
      PRODUCTS
   ========================= */
 
-     const { coords, country, status, setManualCountry } = useUserLocation(customerId);
+  const { coords, country, status, setManualLocation } = useUserLocation(customerId);
      usePushNotifications(!!customerId);
      
 
@@ -649,8 +650,14 @@ const categoryModalProducts = useMemo(() => {
 
       {/* MAIN */}
       <div className={styles.mainContent}>
-                 {(status === 'denied' || status === 'unsupported') && !country && (
-        <CountryPicker onSelect={setManualCountry} />
+              {(status === 'denied' || status === 'unsupported') && !country && (
+        <MapLocationPicker
+          onCancel={() => {}}
+          onConfirm={async ({ lat, lng, address }) => {
+            const geo = await reverseGeocodeCountry(lat, lng);
+            setManualLocation(geo?.country || address, { lat, lng });
+          }}
+        />
       )}
         <main className={styles.productGrid}>
           <div className={styles.grid}>

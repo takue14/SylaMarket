@@ -93,19 +93,20 @@ export function useUserLocation(customerId: string | null) {
     };
   }, [customerId]);
 
-  const setManualCountry = async (selectedCountry: string) => {
+    const setManualLocation = async (selectedCountry: string, point: { lat: number; lng: number }) => {
     setCountry(selectedCountry);
-    setStatus('manual');
+    setCoords(point);
+    setStatus('saved');
     if (customerId) {
       await fetch(`/api/users/buyer/${customerId}/location`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ country: selectedCountry, lat: 0, lng: 0 }),
+        body: JSON.stringify({ country: selectedCountry, lat: point.lat, lng: point.lng }),
       }).catch(() => {});
     } else {
-      sessionStorage.setItem(GUEST_LOCATION_KEY, JSON.stringify({ coords: null, country: selectedCountry }));
+      sessionStorage.setItem(GUEST_LOCATION_KEY, JSON.stringify({ coords: point, country: selectedCountry }));
     }
   };
 
-  return { coords, country, status, setManualCountry };
+  return { coords, country, status, setManualLocation };
 }
