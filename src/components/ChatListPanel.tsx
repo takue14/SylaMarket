@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useVisibilityPolling } from '@/hooks/useVisibilityPolling';
 
 interface ConversationSummary {
   _id: string;
@@ -51,11 +52,7 @@ export default function ChatListPanel({ onClose, asRole }: ChatListPanelProps) {
       .catch(() => {});
   };
 
-  useEffect(() => {
-    loadConversations();
-    const interval = setInterval(loadConversations, 5000);
-    return () => clearInterval(interval);
-  }, [asRole]);
+   useVisibilityPolling(loadConversations, 5000);
 
   useEffect(() => {
     // Only buyers can search for sellers to start a new conversation —

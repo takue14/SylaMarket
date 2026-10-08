@@ -38,6 +38,11 @@ const deliveryGuySchema = new Schema<DeliveryGuyDoc>({
     type: { type: String, enum: ['Point'], default: 'Point' },
     coordinates: { type: [Number], default: undefined },
   },
+    lastVerifiedLocation: {
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null },
+    at: { type: Date, default: null },
+  },
   createdAt: { type: Date, default: Date.now },
   
 });

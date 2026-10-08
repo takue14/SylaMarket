@@ -10,6 +10,9 @@ const OrderItemSchema = new mongoose.Schema({
   feeFlagReason: { type: String, default: null },
     deliveryCodeHash: { type: String, default: null },
   deliveryCodeVerified: { type: Boolean, default: false },
+    deliveryCodeExpiresAt: { type: Date, default: null },
+  deliveryCodeAttempts: { type: Number, default: 0 },
+  deliveryCodeLockedUntil: { type: Date, default: null },
 
     
 });
@@ -54,6 +57,9 @@ const OrderSchema = new mongoose.Schema({
   feeFlagReason: { type: String, default: null },
     deliveryCodeHash: { type: String, default: null },
   deliveryCodeVerified: { type: Boolean, default: false },
+    deliveryCodeExpiresAt: { type: Date, default: null },
+  deliveryCodeAttempts: { type: Number, default: 0 },
+  deliveryCodeLockedUntil: { type: Date, default: null },
 });
 
 OrderSchema.index({ 'products.seller': 1 });

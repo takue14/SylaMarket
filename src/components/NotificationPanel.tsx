@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
+import { useVisibilityPolling } from '@/hooks/useVisibilityPolling';
 
 interface NotificationItem {
   _id: string;
@@ -36,11 +37,7 @@ export default function NotificationPanel({ asRole }: Props) {
     }
   };
 
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 30000); // poll every 30s
-    return () => clearInterval(interval);
-  }, [asRole]);
+    useVisibilityPolling(load, 30000);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

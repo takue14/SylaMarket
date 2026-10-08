@@ -7,6 +7,7 @@ import Loader from '@/components/Loader';
 import LocationSettings from '@/components/LocationSettings';
 import React from 'react';
 import { useCart } from '@/context/CartContext';
+import { useVisibilityPolling } from '@/hooks/useVisibilityPolling';
 
 
 interface OrderItem {
@@ -51,9 +52,9 @@ export default function CustomerDashboard() {
     setCustomerId(id);
     fetchCustomerProfile(id);
     fetchOrders(id);
-    const interval = setInterval(() => fetchOrders(id), 4000);
-    return () => clearInterval(interval);
   }, [router]);
+
+  useVisibilityPolling(() => fetchOrders(customerId!), 10000, !!customerId);
 
   const fetchCustomerProfile = async (id: string) => {
     try {

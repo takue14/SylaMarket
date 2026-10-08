@@ -8,7 +8,7 @@ import Ac404 from '@/components/Ac404';
 import { haversineKm } from '@/lib/geo';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNotification } from '@/context/NotificationContext';
-
+import { useVisibilityPolling } from '@/hooks/useVisibilityPolling';
 
 
 interface OrderItem {
@@ -509,14 +509,15 @@ export default function DeliveryDashboard() {
       return;
     }
     setDeliveryGuyId(id);
-    fetchOrders();
-    fetchEarningsSummary();
-    const interval = setInterval(() => {
-      fetchOrders();
-      fetchEarningsSummary();
-    }, 8000);
-    return () => clearInterval(interval);
   }, [router]);
+
+  useVisibilityPolling(
+    async () => {
+      await Promise.all([fetchOrders(), fetchEarningsSummary()]);
+    },
+    8000,
+    !!deliveryGuyId
+  );
 
     useEffect(() => {
     if (!('geolocation' in navigator)) return;

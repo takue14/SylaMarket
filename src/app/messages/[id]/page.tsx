@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import styled from 'styled-components';
+import { useVisibilityPolling } from '@/hooks/useVisibilityPolling';
 
 interface Msg {
   _id: string;
@@ -39,11 +40,7 @@ function ChatPageInner() {
     }
   };
 
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 3000);
-    return () => clearInterval(interval);
-  }, [id, asRole]);
+   useVisibilityPolling(load, 3000);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
