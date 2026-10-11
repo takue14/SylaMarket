@@ -4,6 +4,7 @@ import { connectToDB } from '@/lib/mongoose';
 import DriverEarning from '@/models/DriverEarning';
 import { getSession } from '@/lib/session';
 import Order from '@/models/Order';
+import { advanceFulfillment } from '@/lib/orderLifecycle';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -132,6 +133,12 @@ export async function POST(req: NextRequest) {
       note: typeof note === 'string' ? note.slice(0, 300) : '',
     }
   );
+
+    // Mark each paid-out order as settled in its lifecycle history.
+  const paidEarnings = await DriverEarning.find({ _id: { $in: claimedIds } }).select('order');
+  for (const e of paidEarnings) {
+    await advanceFulfillment(e.order.toString(), 'settled', { role: 'admin', id: session.id }, `Payout ref ${paymentReference.trim().slice(0, 50)}`);
+  }
 
   return NextResponse.json({ message: `Marked ${claimedIds.length} deliveries ($${amount.toFixed(2)}) as paid.`, amount });
 }

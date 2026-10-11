@@ -14,11 +14,13 @@ interface CartContextType {
   cart: CartItem[];
   addToCart: (product: Product) => boolean; // false if blocked (guest, redirected)
   buyNow: (product: Product) => boolean;
-  removeFromCart: (id: string) => void;
+   removeFromCart: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
+
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -79,10 +81,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCart((prev) => prev.filter((item) => item._id !== id));
   };
 
+    const updateQuantity = (id: string, quantity: number) => {
+    const next = Math.min(Math.max(Math.floor(quantity), 1), 99);
+    setCart((prev) => prev.map((item) => (item._id === id ? { ...item, quantity: next } : item)));
+  };
+
   const clearCart = () => setCart([]);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, buyNow, removeFromCart, clearCart }}>
+    <CartContext.Provider value={{ cart, addToCart, buyNow, removeFromCart, updateQuantity, clearCart }}>
       {children}
     </CartContext.Provider>
   );

@@ -44,6 +44,16 @@ export async function POST(req: NextRequest) {
         // fall back to the default if parsing fails
       }
     }
+    let deliveryModes: string[] = ['hub'];
+    try {
+      const parsed = JSON.parse((formData.get('deliveryModes') as string) || '[]');
+      const clean = Array.isArray(parsed) ? parsed.filter((m) => m === 'hub' || m === 'instant') : [];
+      if (clean.length) deliveryModes = clean;
+    } catch {
+      // keep default
+    }
+    const contributionRaw = parseFloat((formData.get('deliveryContribution') as string) || '0');
+    const deliveryContribution = isNaN(contributionRaw) || contributionRaw < 0 ? 0 : contributionRaw;
 
     if (!productName || !price || !category) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
@@ -108,8 +118,10 @@ export async function POST(req: NextRequest) {
       location: seller.location,
       salePrice,
       lowStockThreshold,
-      depositPercentage,
+            depositPercentage,
       paymentMethods,
+      deliveryModes,
+      deliveryContribution,
     });
 
     return NextResponse.json(newProduct, { status: 201 });

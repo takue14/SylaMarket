@@ -22,17 +22,23 @@ export async function PUT(req: NextRequest) {
   const ratePerKm = num(b.ratePerKm, 0, 50);
   const valuePct = num(b.valuePct, 0, 0.5);
   const valueCap = num(b.valueCap, 0, 1000);
-  const feeWeight = num(b.feeWeight, 0, 1);
+  const commissionRate = num(b.commissionRate ?? 0.08, 0, 0.5);
+  const customerDeliveryFee = num(b.customerDeliveryFee ?? 0.5, 0, 100);
+  const instantBaseFee = num(b.instantBaseFee ?? 2, 0, 100);
+  const instantPerItemFee = num(b.instantPerItemFee ?? 0.5, 0, 100);  const feeWeight = num(b.feeWeight, 0, 1);
   const validMode = ['fee', 'efficiency', 'blended'].includes(b.rankingMode);
 
-  if ([baseFee, ratePerKm, valuePct, valueCap, feeWeight].some((v) => v === null) || !validMode) {
+  if (
+    [baseFee, ratePerKm, valuePct, valueCap, feeWeight, commissionRate, customerDeliveryFee, instantBaseFee, instantPerItemFee].some((v) => v === null) ||
+    !validMode
+  ) {
     return NextResponse.json({ message: 'One or more settings are out of range.' }, { status: 400 });
   }
 
   await connectToDB();
   await DeliverySettings.findOneAndUpdate(
     { key: 'default' },
-    { key: 'default', baseFee, ratePerKm, valuePct, valueCap, feeWeight, rankingMode: b.rankingMode, updatedAt: new Date() },
+    { key: 'default', baseFee, ratePerKm, valuePct, valueCap, feeWeight, commissionRate, customerDeliveryFee, instantBaseFee, instantPerItemFee, rankingMode: b.rankingMode, updatedAt: new Date() },
     { upsert: true }
   );
   return NextResponse.json({ message: 'Settings saved.' });

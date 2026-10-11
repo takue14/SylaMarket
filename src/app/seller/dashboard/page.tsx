@@ -590,13 +590,18 @@ export default function SellerDashboard() {
                 </ActionBtn>
               </ActionRow>
 
-              {/*<ActionRow style={{ marginTop: 12 }}>
+                            <ActionRow style={{ marginTop: 12 }}>
                 <Link href="/seller/bulk-upload" passHref legacyBehavior>
                   <ActionBtn as="a">
                     <CircleIcon>≡</CircleIcon> Bulk CSV
                   </ActionBtn>
                 </Link>
-              </ActionRow>*/}
+                <Link href="/seller/orders" passHref legacyBehavior>
+                  <ActionBtn as="a">
+                    <CircleIcon>📦</CircleIcon> Orders
+                  </ActionBtn>
+                </Link>
+              </ActionRow>
             </BalanceCard>
 
             {/* ---- Slide 2: Analysis (was mobileTab "analysis") ---- */}

@@ -8,6 +8,10 @@ export interface DeliverySettingsValues {
   valueCap: number;
   rankingMode: 'fee' | 'efficiency' | 'blended';
   feeWeight: number;
+  commissionRate: number;
+  customerDeliveryFee: number;
+  instantBaseFee: number;
+  instantPerItemFee: number;
 }
 
 export const DEFAULT_SETTINGS: DeliverySettingsValues = {
@@ -17,6 +21,10 @@ export const DEFAULT_SETTINGS: DeliverySettingsValues = {
   valueCap: 3,
   rankingMode: 'blended',
   feeWeight: 0.6,
+  commissionRate: 0.08,
+  customerDeliveryFee: 0.5,
+  instantBaseFee: 2,
+  instantPerItemFee: 0.5,
 };
 
 export async function getDeliverySettings(): Promise<DeliverySettingsValues> {

@@ -13,6 +13,14 @@ const OrderItemSchema = new mongoose.Schema({
     deliveryCodeExpiresAt: { type: Date, default: null },
   deliveryCodeAttempts: { type: Number, default: 0 },
   deliveryCodeLockedUntil: { type: Date, default: null },
+    itemStatus: {
+    type: String,
+    enum: ['awaiting_seller', 'accepted', 'preparing', 'ready', 'shipped', 'at_hub'],
+    default: 'awaiting_seller',
+  },
+  deliveryContribution: { type: Number, default: 0 }, // per-line total embedded in price
+  commission: { type: Number, default: 0 },
+  sellerPayout: { type: Number, default: 0 },
 
     
 });
@@ -60,6 +68,30 @@ const OrderSchema = new mongoose.Schema({
     deliveryCodeExpiresAt: { type: Date, default: null },
   deliveryCodeAttempts: { type: Number, default: 0 },
   deliveryCodeLockedUntil: { type: Date, default: null },
+    fulfillment: {
+    type: String,
+    enum: [
+      'order_created', 'payment_pending', 'payment_confirmed', 'seller_accepted', 'seller_preparing',
+      'ready_for_collection', 'collected', 'at_hub', 'sorted', 'assigned_to_route',
+      'out_for_delivery', 'delivered', 'settled',
+    ],
+    default: 'order_created',
+  },
+  fulfillmentMode: { type: String, enum: ['direct', 'hub'], default: 'hub' },
+  deliveryReady: { type: Boolean, default: false, index: true },
+  deliveryFee: { type: Number, default: 0 },
+  driverPay: { type: Number, default: null },
+  statusHistory: [
+    {
+      from: String,
+      to: String,
+      actorRole: String,
+      actorId: String,
+      note: String,
+      at: { type: Date, default: Date.now },
+      _id: false,
+    },
+  ],
 });
 
 OrderSchema.index({ 'products.seller': 1 });

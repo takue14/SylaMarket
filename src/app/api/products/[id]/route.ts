@@ -30,9 +30,11 @@ export async function PATCH(
   'quantity',
   'segment',
   'paymentMethods',
-  'lowStockThreshold',
-  'depositPercentage',
-];
+        'lowStockThreshold',
+      'depositPercentage',
+      'deliveryModes',
+      'deliveryContribution',
+    ];
     const updates: Record<string, unknown> = {};
     for (const key of allowedFields) {
       if (key in body) updates[key] = body[key];

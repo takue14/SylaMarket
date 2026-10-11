@@ -26,6 +26,8 @@ export default function SellerUpload() {
     lowStockThreshold: '5',
     depositPercentage: '',
     paymentMethods: ['cod', 'ecocash', 'paynow'] as string[],
+        deliveryModes: ['hub'] as string[],
+    deliveryContribution: '',
   });
   const [images, setImages] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -66,8 +68,12 @@ export default function SellerUpload() {
       setError('Upload at least one product image.');
       return;
     }
-    if (formData.paymentMethods.length === 0) {
+        if (formData.paymentMethods.length === 0) {
       setError('Select at least one payment method.');
+      return;
+    }
+    if (formData.deliveryModes.length === 0) {
+      setError('Choose at least one delivery option.');
       return;
     }
 
@@ -85,7 +91,8 @@ export default function SellerUpload() {
       data.append('lowStockThreshold', formData.lowStockThreshold);
       if (formData.depositPercentage.trim()) data.append('depositPercentage', formData.depositPercentage);
       data.append('paymentMethods', JSON.stringify(formData.paymentMethods));
-      data.append('sellerId', sellerId);
+      data.append('deliveryModes', JSON.stringify(formData.deliveryModes));
+      if (formData.deliveryContribution.trim()) data.append('deliveryContribution', formData.deliveryContribution);      data.append('sellerId', sellerId);
       images.forEach((img) => data.append('images', img));
 
       const res = await fetch('/api/products', {
@@ -242,7 +249,20 @@ export default function SellerUpload() {
               onChange={(e) => setFormData({ ...formData, depositPercentage: e.target.value })}
             />
           </div>
+          <div className="form-group">
+            <label>Delivery contribution per item (optional)</label>
+            <input
+              type="number"
+              className="input"
+              placeholder="e.g. 1.00 — part of the price that goes to the driver"
+              value={formData.deliveryContribution}
+              min="0"
+              step="0.01"
+              onChange={(e) => setFormData({ ...formData, deliveryContribution: e.target.value })}
+            />
+          </div>
 
+          
           <div className="form-group">
             <label>Accepted Payment Methods</label>
             <div className="payment-options">
@@ -258,6 +278,28 @@ export default function SellerUpload() {
               ))}
             </div>
           </div>
+
+          <div className="form-group">
+  <label>Delivery options</label>
+  <div className="payment-options">
+    {[{ k: 'hub', l: 'Hub delivery (cheaper, consolidated)' }, { k: 'instant', l: 'Instant delivery (driver collects from you)' }].map((o) => (
+      <label key={o.k} className="payment-checkbox">
+        <input
+          type="checkbox"
+          checked={formData.deliveryModes.includes(o.k)}
+          onChange={() =>
+            setFormData((p) => ({
+              ...p,
+              deliveryModes: p.deliveryModes.includes(o.k) ? p.deliveryModes.filter((x) => x !== o.k) : [...p.deliveryModes, o.k],
+            }))
+          }
+        />
+        {o.l}
+      </label>
+    ))}
+  </div>
+</div>
+
 
           <div className="form-group file-upload-group">
             <label>Product Images (1–4)</label>

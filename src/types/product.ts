@@ -1,5 +1,6 @@
 // src/types/product.ts (updated to include imageLink)
 export interface Product {
+  
   _id: string;
   productName: string;
   price: number;
@@ -18,4 +19,7 @@ export interface Product {
   };
   createdAt: Date;
   salePrice?: number;  lowStockThreshold?: number;
+  deliveryModes?: ('hub' | 'instant')[];
+  deliveryContribution?: number;
+  
 }

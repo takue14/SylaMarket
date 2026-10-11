@@ -7,6 +7,7 @@ import { toPoint, Point } from '@/lib/geo';
 import { driverToDestinations, RouteMetric } from '@/lib/osrm';
 import { getDeliverySettings, computeDriverFee, rankOrders } from '@/lib/deliveryFee';
 import { checkRateLimit } from '@/lib/rateLimit';
+import { getPickupDetails } from '@/lib/pickup';
 
 interface LeanOrder {
   _id: unknown;
@@ -15,7 +16,9 @@ interface LeanOrder {
   totalAmount: number;
   contact: string;
   driverFee?: number | null;
+  driverPay?: number | null;
   driverDistanceKm?: number | null;
+  fulfillmentMode?: string;
   deliveryCoords?: { lat?: number | null; lng?: number | null };
   [key: string]: unknown;
 }
@@ -33,8 +36,7 @@ export async function GET(req: NextRequest) {
   if (!rate.allowed) {
     return NextResponse.json({ message: 'Too many requests. Please slow down.' }, { status: 429 });
   }
-    
-  
+
   await connectToDB();
   const driver = await DeliveryGuy.findById(session.id).select('country location');
   const driverCountry = driver?.country ?? null;
@@ -51,6 +53,7 @@ export async function GET(req: NextRequest) {
       {
         $and: [
           { status: 'pending' },
+          { deliveryReady: true },
           { claimedBy: null },
           { $or: [{ country: driverCountry }, { country: null }] },
         ],
@@ -76,13 +79,20 @@ export async function GET(req: NextRequest) {
     routable.forEach((x, k) => metricByOrder.set(String(x.o._id), metrics[k]));
   }
 
-    const enrichedPool = pool.map((o) => {
+  const enrichedPool = pool.map((o) => {
     const m = metricByOrder.get(String(o._id));
     const distanceKm = m ? Math.round(m.distanceKm * 100) / 100 : null;
+
+    // New-model orders pay a fixed amount; older orders use the distance formula.
+    const fee =
+      o.driverPay != null
+        ? o.driverPay
+        : m
+        ? computeDriverFee(m.distanceKm, o.totalAmount, settings)
+        : null;
+
     return {
-      // Unclaimed orders expose nothing that identifies the customer —
-      // no name, no address, no exact coordinates, no contact. A driver
-      // sees only enough to decide whether the job is worth taking.
+      // Unclaimed orders expose nothing that identifies the customer.
       _id: o._id,
       orderRef: `#${String(o._id).slice(-6)}`,
       country: o.country ?? null,
@@ -90,20 +100,28 @@ export async function GET(req: NextRequest) {
       orderValue: o.totalAmount,
       distanceKm,
       durationMin: m ? Math.round(m.durationMin) : null,
-      driverFee: m ? computeDriverFee(m.distanceKm, o.totalAmount, settings) : null,
+      driverFee: fee,
+      fulfillmentMode: o.fulfillmentMode ?? 'hub',
       status: 'pending',
       claimedBy: null,
-      createdAt: o.createdAt
+      createdAt: o.createdAt,
     };
   });
 
-  const mineOut = mine.map((o) => ({
-    // Full detail only once this driver has actually claimed the order.
-    ...o,
-    distanceKm: o.driverDistanceKm ?? null,
-    durationMin: null,
-    driverFee: o.driverFee ?? null,
-  }));
+  const mineOut = await Promise.all(
+    mine.map(async (o) => ({
+      // Full detail only once this driver has actually claimed the order.
+      ...o,
+      distanceKm: o.driverDistanceKm ?? null,
+      durationMin: null,
+      driverFee: o.driverFee ?? null,
+      // Seller pickup details are revealed only for instant orders this driver owns.
+      pickup:
+        o.fulfillmentMode === 'direct' && Array.isArray(o.products)
+          ? await getPickupDetails(o.products as { seller: { toString: () => string } }[])
+          : [],
+    }))
+  );
 
   return NextResponse.json({
     orders: [...rankOrders(enrichedPool, settings), ...mineOut],

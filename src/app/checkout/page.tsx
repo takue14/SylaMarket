@@ -22,7 +22,16 @@ export default function Checkout() {
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState('Cash on Delivery');
-  const [wantsSplitPayment, setWantsSplitPayment] = useState(false);
+    const [wantsSplitPayment, setWantsSplitPayment] = useState(false);
+  const [deliveryMode, setDeliveryMode] = useState<'hub' | 'instant'>('hub');
+  const [fees, setFees] = useState({ hubFee: 0.5, instantBaseFee: 2, instantPerItemFee: 0.5 });
+
+  useEffect(() => {
+    fetch('/api/delivery/fees')
+      .then((r) => r.json())
+      .then(setFees)
+      .catch(() => {});
+  }, []);
 
   // Only payment methods every item in the cart supports remain selectable —
   // the rest render blurred/disabled instead of being hidden, so the buyer
@@ -62,19 +71,47 @@ const def = (data as SavedAddress[])?.find((a) => a.isDefault);
   }, []);
 
 
-  const totalAmount = cart.reduce(
+    const totalAmount = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
 
+  const modesFor = (item: { deliveryModes?: string[] }) =>
+    item.deliveryModes?.length ? item.deliveryModes : ['hub'];
+  const sellerIds = new Set(
+    cart.map((i) => {
+      const s = (i as unknown as { seller?: string | { _id?: string } }).seller;
+      return typeof s === 'object' ? s?._id : s;
+    })
+  );
+  const hubOk = cart.every((i) => modesFor(i).includes('hub'));
+  const instantOk = cart.every((i) => modesFor(i).includes('instant')) && sellerIds.size === 1;
+  const units = cart.reduce((a, i) => a + i.quantity, 0);
+  const hubFeeAmount = fees.hubFee;
+  const instantFeeAmount = fees.instantBaseFee + fees.instantPerItemFee * units;
+  const deliveryFee = deliveryMode === 'instant' ? instantFeeAmount : hubFeeAmount;
+  const grandTotal = totalAmount + deliveryFee;
+  const canOrder = hubOk || instantOk;
+
   const totalDeposit = lineDeposits.reduce((sum, l) => sum + l.deposit, 0);
-  const totalBalance = totalAmount - totalDeposit;
+  const totalBalance = grandTotal - totalDeposit;
+
+  useEffect(() => {
+    if (deliveryMode === 'hub' && !hubOk && instantOk) setDeliveryMode('instant');
+    if (deliveryMode === 'instant' && !instantOk && hubOk) setDeliveryMode('hub');
+  }, [hubOk, instantOk, deliveryMode]);
+
+
   const splitPaymentEligible = lineDeposits.some((l) => l.hasSplitOption);
 
 
   const handlePlaceOrder = async () => {
-    if (!customerName.trim() || !contact.trim() || !location.trim()) {
+        if (!customerName.trim() || !contact.trim() || !location.trim()) {
       alert('Please fill in Name, Contact and Location');
+      return;
+    }
+    if (!canOrder) {
+      alert('Your cart mixes items that cannot be delivered the same way. Remove some items or check out separately.');
       return;
     }
 
@@ -93,7 +130,8 @@ const def = (data as SavedAddress[])?.find((a) => a.isDefault);
       contact: contact.trim(),
       location: location.trim(),
       paymentMethod: methodMap[selectedPayment] || 'cod',
-      isSplitPayment: splitPaymentEligible && wantsSplitPayment,
+            isSplitPayment: splitPaymentEligible && wantsSplitPayment,
+      deliveryMode,
       deliveryCoords: deliveryCoords ?? undefined,
       products: cart.map((item) => ({
         productId: item._id,
@@ -226,15 +264,48 @@ const def = (data as SavedAddress[])?.find((a) => a.isDefault);
             {/* FIX: dollar sign now baseline-aligned with digits */}
             <div className="amount-wrapper">
               <span className="dollar">$</span>
-              <h1 className="amount">{totalAmount.toFixed(2)}</h1>
+                            <h1 className="amount">{grandTotal.toFixed(2)}</h1>
             </div>
 
             <div className="selected-badge">{selectedPayment}</div>
           </div>
 
-          {/* PAYMENT */}
+                   {/* PAYMENT */}
           <div className="middle-wrapper">
             <div className="middle-section">
+              <div style={{ display: 'flex', gap: 10, padding: '0 20px 14px' }}>
+                {([
+                  ['hub', 'Hub delivery', hubOk, hubFeeAmount],
+                  ['instant', 'Instant delivery', instantOk, instantFeeAmount],
+                ] as const).map(([k, label, ok, fee]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    disabled={!ok}
+                    onClick={() => setDeliveryMode(k)}
+                    style={{
+                      flex: 1,
+                      padding: 12,
+                      borderRadius: 14,
+                      border: deliveryMode === k ? '2px solid #8B5CF6' : '1px solid #444',
+                      background: 'transparent',
+                      color: '#fff',
+                      opacity: ok ? 1 : 0.35,
+                      cursor: ok ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{label}</div>
+                    <div style={{ fontSize: 12 }}>${fee.toFixed(2)}</div>
+                  </button>
+                ))}
+              </div>
+              {!canOrder && (
+                <p style={{ color: '#f87171', padding: '0 20px 10px', fontSize: 12 }}>
+                  Your cart mixes items that cannot be delivered the same way (or instant items from different sellers).
+                  Remove some items or check out separately.
+                </p>
+              )}
+
                             <div className="payment-methods">
                 {paymentMethods.map((method, i) => {
                   const methodKeyMap: Record<string, string> = { 'Cash on Delivery': 'cod', Ecocash: 'ecocash', Bank: 'paynow' };
@@ -411,13 +482,39 @@ const def = (data as SavedAddress[])?.find((a) => a.isDefault);
               )}
 
 
-            <div className="form">
+                        <div className="form">
+              <div style={{ display: 'flex', gap: 8 }}>
+                {([
+                  ['hub', 'Hub', hubOk, hubFeeAmount],
+                  ['instant', 'Instant', instantOk, instantFeeAmount],
+                ] as const).map(([k, label, ok, fee]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    disabled={!ok}
+                    onClick={() => setDeliveryMode(k)}
+                    style={{
+                      flex: 1,
+                      padding: 8,
+                      borderRadius: 8,
+                      border: deliveryMode === k ? '2px solid #8B5CF6' : '1px solid #ddd',
+                      background: 'transparent',
+                      color: '#111',
+                      opacity: ok ? 1 : 0.35,
+                      cursor: ok ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    {label} · ${fee.toFixed(2)}
+                  </button>
+                ))}
+              </div>
               <input
                 placeholder="Full Name"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 className="input_field"
               />
+
               <input
                 placeholder="Contact"
                 value={contact}
@@ -476,9 +573,17 @@ const def = (data as SavedAddress[])?.find((a) => a.isDefault);
           {/* TOTAL */}
           <div className="card checkout">
             <label className="title">Summary</label>
+                        <div className="details">
+              <span>Items:</span>
+              <span>${totalAmount.toFixed(2)}</span>
+            </div>
+            <div className="details">
+              <span>Delivery ({deliveryMode}):</span>
+              <span>${deliveryFee.toFixed(2)}</span>
+            </div>
             <div className="details">
               <span>Total:</span>
-              <span>${totalAmount.toFixed(2)}</span>
+              <span>${grandTotal.toFixed(2)}</span>
             </div>
             <div className="checkout--footer">
               <button onClick={handlePlaceOrder} disabled={loading} className="checkout-btn">

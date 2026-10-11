@@ -12,6 +12,9 @@ import { toPoint, haversineKm } from '@/lib/geo';
 import { driverToDestinations } from '@/lib/osrm';
 import { getDeliverySettings, computeDriverFee, getWeekStart } from '@/lib/deliveryFee';
 import { checkRateLimit } from '@/lib/rateLimit';
+import { priceOrder } from '@/lib/pricing';
+import { advanceFulfillment } from '@/lib/orderLifecycle';
+import { getPickupDetails } from '@/lib/pickup';
 import {
   generateDeliveryCode,
   hashDeliveryCode,
@@ -26,7 +29,6 @@ interface CartLineInput {
   quantity: number;
 }
 
-/** Thrown inside the transaction for problems the buyer caused (stock, bad cart) so they map to 409, not 500. */
 class OrderRuleError extends Error {}
 
 export async function POST(req: NextRequest) {
@@ -48,17 +50,24 @@ export async function POST(req: NextRequest) {
   try {
     await connectToDB();
     const body = await req.json();
-    const { customerName, contact, location, products, paymentMethod, deliveryCoords: clientCoords } = body as {
+    const {
+      customerName, contact, location, products, paymentMethod,
+      deliveryCoords: clientCoords, deliveryMode,
+    } = body as {
       customerName: string;
       contact: string;
       location: string;
       products: CartLineInput[];
       paymentMethod: 'cod' | 'ecocash' | 'paynow';
       deliveryCoords?: { lat: number; lng: number };
+      deliveryMode?: 'hub' | 'instant';
     };
 
     if (!['cod', 'ecocash', 'paynow'].includes(paymentMethod)) {
       return NextResponse.json({ message: 'A valid payment method is required.' }, { status: 400 });
+    }
+    if (deliveryMode !== 'hub' && deliveryMode !== 'instant') {
+      return NextResponse.json({ message: 'Choose hub or instant delivery.' }, { status: 400 });
     }
     if (!customerName?.trim() || !contact?.trim() || !location?.trim() || !Array.isArray(products) || !products.length) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
@@ -67,8 +76,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Too many items in one order.' }, { status: 400 });
     }
 
-    // External geocoding happens BEFORE the transaction so slow network
-    // calls never hold database locks open.
+    // Slow external calls happen BEFORE the transaction.
     let orderCountry: string | null = null;
     let deliveryCoords: { lat: number; lng: number } | null = null;
 
@@ -83,6 +91,7 @@ export async function POST(req: NextRequest) {
       if (geocoded) deliveryCoords = { lat: geocoded.lat, lng: geocoded.lng };
     }
 
+    const pricingSettings = await getDeliverySettings();
     const { isSplitPayment } = body as { isSplitPayment?: boolean };
 
     const mongoSession = await mongoose.startSession();
@@ -90,14 +99,13 @@ export async function POST(req: NextRequest) {
 
     try {
       await mongoSession.withTransaction(async () => {
-        // withTransaction may re-run this callback on transient errors,
-        // so all working state must be (re)initialised inside it.
         const orderItems: Array<{
           product: string;
           seller: string;
           productName: string;
           quantity: number;
           price: number;
+          deliveryContribution: number;
         }> = [];
 
         for (const line of products) {
@@ -122,16 +130,42 @@ export async function POST(req: NextRequest) {
             );
           }
 
+          // The seller decides which modes each product supports.
+          const modes: string[] = updated.deliveryModes?.length ? updated.deliveryModes : ['hub'];
+          if (!modes.includes(deliveryMode)) {
+            throw new OrderRuleError(
+              `"${updated.productName}" is not available for ${deliveryMode === 'instant' ? 'instant' : 'hub'} delivery.`
+            );
+          }
+
           orderItems.push({
             product: updated._id.toString(),
             seller: updated.seller.toString(),
             productName: updated.productName,
             quantity: line.quantity,
             price: updated.price,
+            deliveryContribution: updated.deliveryContribution ?? 0,
           });
         }
 
-        const totalAmount = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        // Instant = the driver collects straight from the seller, so one seller per order.
+        if (deliveryMode === 'instant' && new Set(orderItems.map((i) => i.seller)).size > 1) {
+          throw new OrderRuleError('Instant delivery only works with items from a single seller. Use hub delivery or split your cart.');
+        }
+
+        const priced = priceOrder(
+          orderItems.map((i) => ({ price: i.price, quantity: i.quantity, deliveryContribution: i.deliveryContribution })),
+          pricingSettings,
+          deliveryMode
+        );
+        const totalAmount = priced.total;
+        const itemsWithMoney = orderItems.map((i, n) => ({
+          ...i,
+          deliveryContribution: priced.items[n].contribution,
+          commission: priced.items[n].commission,
+          sellerPayout: priced.items[n].sellerPayout,
+        }));
+
         let depositAmount = 0;
         let balanceDue = totalAmount;
 
@@ -150,6 +184,9 @@ export async function POST(req: NextRequest) {
           balanceDue = Math.round((totalAmount - depositAmount) * 100) / 100;
         }
 
+        const stage = paymentMethod === 'cod' ? 'payment_confirmed' : 'payment_pending';
+        const now = new Date();
+
         const created = await Order.create(
           [
             {
@@ -159,7 +196,7 @@ export async function POST(req: NextRequest) {
               location: location.trim(),
               country: orderCountry,
               deliveryCoords,
-              products: orderItems,
+              products: itemsWithMoney,
               totalAmount,
               status: 'pending',
               claimedBy: null,
@@ -170,6 +207,15 @@ export async function POST(req: NextRequest) {
               paymentStatus:
                 paymentMethod === 'cod' ? 'cod_pending' : depositAmount > 0 ? 'deposit_paid' : 'awaiting_payment',
               estimatedMinutes: null,
+              deliveryFee: priced.deliveryFee,
+              driverPay: priced.driverPay,
+              fulfillmentMode: deliveryMode === 'instant' ? 'direct' : 'hub',
+              deliveryReady: false,
+              fulfillment: stage,
+              statusHistory: [
+                { from: null, to: 'order_created', actorRole: 'customer', actorId: session.id, at: now },
+                { from: 'order_created', to: stage, actorRole: 'system', actorId: 'system', at: now },
+              ],
             },
           ],
           { session: mongoSession }
@@ -256,9 +302,6 @@ export async function GET(req: NextRequest) {
       paymentStatus: { $in: ['paid', 'cod_pending', 'deposit_paid'] },
     };
   } else if (session.role === 'delivery') {
-    // Deliberately restricted to the driver's own claimed orders. The
-    // unclaimed pool is served only by GET /api/delivery/orders, which
-    // withholds customer details until a claim succeeds.
     filter = {
       paymentStatus: { $in: ['paid', 'cod_pending', 'deposit_paid'] },
       claimedBy: session.id,
@@ -297,15 +340,18 @@ export async function PATCH(req: NextRequest) {
     if (!['pending', 'inprogress', 'delivered'].includes(status)) {
       return NextResponse.json({ message: 'Invalid status.' }, { status: 400 });
     }
+    const actor = { role: 'delivery' as const, id: session.id };
 
-    // ================== CLAIM (pending -> inprogress) ==================
+    // ================== CLAIM ==================
     if (status === 'inprogress') {
-      // Atomic claim: only one concurrent request can match this filter.
+      // Only orders released to drivers can be claimed (hub: after the admin sorts it;
+      // instant: once every item is ready at the seller).
       const claimedOrder = await Order.findOneAndUpdate(
         {
           _id: orderId,
           status: 'pending',
           claimedBy: null,
+          deliveryReady: true,
           paymentStatus: { $in: ['paid', 'cod_pending', 'deposit_paid'] },
         },
         { status: 'inprogress', claimedBy: session.id },
@@ -364,6 +410,8 @@ export async function PATCH(req: NextRequest) {
       }
       const settings = await getDeliverySettings();
       order.driverFee = computeDriverFee(distanceKm ?? 0, order.totalAmount, settings);
+      // Orders created with the new pricing model pay the fixed driver amount instead of the OSRM formula.
+      if (order.driverPay != null) order.driverFee = order.driverPay;
       order.driverDistanceKm = distanceKm;
       order.feeFlaggedForReview = !!flagReason;
       order.feeFlagReason = flagReason;
@@ -376,10 +424,8 @@ export async function PATCH(req: NextRequest) {
       order.deliveryCodeLockedUntil = null;
 
       await order.save();
+      await advanceFulfillment(order._id.toString(), 'assigned_to_route', actor, 'Claimed by driver');
 
-      // Send the handoff code. Failures are logged loudly rather than
-      // swallowed, because a buyer who never gets this code can't
-      // complete the delivery.
       const Customer = (await import('@/models/Customer')).default;
       const buyer = await Customer.findById(order.customer).select('email');
       if (!buyer?.email) {
@@ -401,21 +447,28 @@ export async function PATCH(req: NextRequest) {
         userId: order.customer.toString(),
         role: 'customer',
         type: 'order_in_transit',
-        title: 'Your order is on the way',
-        message: `Order #${order._id.toString().slice(-6)} has been picked up and is now in transit.`,
+        title: 'A driver has taken your order',
+        message: `Order #${order._id.toString().slice(-6)} has been assigned to a driver.`,
         link: '/customer/dashboard',
       }).catch((err) => console.error('Notification failed (non-fatal):', err));
 
-      return NextResponse.json(order);
+      // Instant orders: the driver goes to the seller, so reveal pickup details now (and only now).
+      const pickup = order.fulfillmentMode === 'direct' ? await getPickupDetails(order.products) : [];
+      return NextResponse.json({ ...order.toObject(), pickup });
     }
 
-    // ================== EVERYTHING ELSE (must already be claimed by this driver) ==================
+    // ================== DELIVERED / RELEASE ==================
     if (status === 'delivered' || status === 'pending') {
       const order = await Order.findOne({ _id: orderId, claimedBy: session.id });
       if (!order) {
         return NextResponse.json({ message: 'You can only update orders you have claimed.' }, { status: 403 });
       }
       const previousStatus = order.status;
+
+      // The lifecycle only moves forward, so a delivered order is final.
+      if (previousStatus === 'delivered') {
+        return NextResponse.json({ message: 'A delivered order cannot be changed.' }, { status: 409 });
+      }
 
       if (status === 'delivered' && !order.deliveryCodeVerified) {
         if (order.deliveryCodeLockedUntil && order.deliveryCodeLockedUntil > new Date()) {
@@ -438,8 +491,6 @@ export async function PATCH(req: NextRequest) {
         }
 
         if (!deliveryCode || !order.deliveryCodeHash || !verifyDeliveryCode(String(deliveryCode), order.deliveryCodeHash)) {
-          // Only count an attempt when a code was actually submitted,
-          // so the first "please enter your code" prompt doesn't burn one.
           if (deliveryCode) {
             order.deliveryCodeAttempts = (order.deliveryCodeAttempts ?? 0) + 1;
             if (order.deliveryCodeAttempts >= DELIVERY_CODE_MAX_ATTEMPTS) {
@@ -495,28 +546,24 @@ export async function PATCH(req: NextRequest) {
         );
       }
 
-      // Reopening a delivered order voids its (unpaid) earning — a paid one can't be undone here.
-      if (previousStatus === 'delivered' && status !== 'delivered') {
-        const earning = await DriverEarning.findOne({ order: order._id });
-        if (earning?.status !== undefined && earning.status !== 'unpaid') {
-          return NextResponse.json(
-            { message: 'This delivery has already been paid out (or is being processed) and cannot be reopened.' },
-            { status: 409 }
-          );
-        }
-        if (earning) await earning.deleteOne();
-      }
-
       order.status = status;
       if (status === 'pending') {
+        // Driver released the order back to the pool.
         order.claimedBy = null;
         order.driverFee = null;
         order.driverDistanceKm = null;
+        order.statusHistory.push({
+          from: order.fulfillment, to: order.fulfillment, actorRole: 'delivery', actorId: session.id,
+          note: 'Driver released the order', at: new Date(),
+        });
       }
 
       await order.save();
 
-      if (status === 'delivered' && previousStatus !== 'delivered' && order.claimedBy && order.deliveryCodeVerified) {
+      if (status === 'delivered' && order.claimedBy && order.deliveryCodeVerified) {
+        // >>> This is where the lifecycle "delivered" step goes <<<
+        await advanceFulfillment(order._id.toString(), 'delivered', actor, 'Handoff code verified');
+
         try {
           let fee: number = order.driverFee;
           if (fee == null) {
