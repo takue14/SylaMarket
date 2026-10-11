@@ -76,7 +76,7 @@ export default function CartPage() {
               </SummaryRow>
               <SummaryRow>
                 <span>Delivery</span>
-                <span style={{ color: '#10b981' }}>Pending ....</span>
+                <span style={{ color: '#10b981' }}>Pending</span>
               </SummaryRow>
               <Divider />
               <SummaryRow>
